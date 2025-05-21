@@ -286,13 +286,9 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
                 }
             )
 
-            with pytest.raises(
-                ValueError, match="Invalid file types specified: \\['exe'\\]. Valid types are:"
-            ) as exc_info:
-                directory_component.load_directory()
-
-            assert "Invalid file types specified: ['exe']" in str(exc_info.value)
-            assert "Valid types are:" in str(exc_info.value)
+            results = directory_component.load_directory()
+            assert len(results) == 1
+            assert Path(results[0].data["file_path"]).suffix == ".exe"
 
     def test_directory_with_hidden_files(self):
         """Test DirectoryComponent with hidden files."""
