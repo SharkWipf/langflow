@@ -2,8 +2,10 @@ from .alter_metadata import AlterMetadataComponent
 from .combine_text import CombineTextComponent
 from .create_data import CreateDataComponent
 from .data_operations import DataOperationsComponent
+from .directory_tree import DirectoryTreeComponent
 from .extract_key import ExtractDataKeyComponent
 from .filter_data_values import DataFilterComponent
+from .format_directory_data import FormatDirectoryDataComponent
 from .json_cleaner import JSONCleaner
 from .lambda_filter import LambdaFilterComponent
 from .llm_router import LLMRouterComponent
@@ -12,7 +14,6 @@ from .message_to_data import MessageToDataComponent
 from .parse_data import ParseDataComponent
 from .parse_json_data import ParseJSONDataComponent
 from .parser import ParserComponent
-from .format_directory_data import FormatDirectoryDataComponent
 from .regex import RegexExtractorComponent
 from .select_data import SelectDataComponent
 from .split_text import SplitTextComponent
@@ -24,7 +25,9 @@ __all__ = [
     "CreateDataComponent",
     "DataFilterComponent",
     "DataOperationsComponent",
+    "DirectoryTreeComponent",
     "ExtractDataKeyComponent",
+    "FormatDirectoryDataComponent",
     "JSONCleaner",
     "LLMRouterComponent",
     "LambdaFilterComponent",
@@ -34,7 +37,6 @@ __all__ = [
     "ParseDataFrameComponent",
     "ParseJSONDataComponent",
     "ParserComponent",
-    "FormatDirectoryDataComponent",
     "RegexExtractorComponent",
     "SelectDataComponent",
     "SplitTextComponent",
