@@ -57,6 +57,17 @@ def format_directory_path(path: str) -> str:
     return path.replace("\n", "\\n")
 
 
+def split_base_relative_path(base_path: str, file_path: str) -> tuple[str, str]:
+    """Return the resolved base path and the file path relative to it."""
+    base = Path(base_path).resolve()
+    file = Path(file_path).resolve()
+    try:
+        relative = file.relative_to(base)
+    except ValueError:
+        relative = file.name
+    return str(base), str(relative)
+
+
 # Ignoring FBT001 because the DirectoryComponent in 1.0.19
 # calls this function without keyword arguments
 def retrieve_file_paths(
@@ -188,11 +199,9 @@ def parse_text_file_to_data(
 
     data = {"file_path": file_path, "text": text}
     if base_path:
-        try:
-            data["relative_path"] = str(Path(file_path).resolve().relative_to(Path(base_path).resolve()))
-        except ValueError:
-            data["relative_path"] = str(Path(file_path).name)
-        data["base_path"] = str(Path(base_path))
+        base, rel = split_base_relative_path(base_path, file_path)
+        data["relative_path"] = rel
+        data["base_path"] = base
     return Data(data=data)
 
 
