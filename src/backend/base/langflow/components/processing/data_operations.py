@@ -20,7 +20,6 @@ ACTION_CONFIG = {
     "Append or Update": {"is_list": False, "log_msg": "setting Append or Update fields"},
     "Remove Keys": {"is_list": False, "log_msg": "setting remove keys fields"},
     "Rename Keys": {"is_list": False, "log_msg": "setting rename keys fields"},
-    "Join Data": {"is_list": True, "log_msg": "setting join data fields"},
 }
 OPERATORS = {
     "equals": lambda a, b: str(a) == str(b),
@@ -69,7 +68,6 @@ class DataOperationsComponent(Component):
         "Append or Update": ["append_update_data", "operations"],
         "Remove Keys": ["remove_keys_input", "operations"],
         "Rename Keys": ["rename_keys_input", "operations"],
-        "Join Data": [],
     }
 
     inputs = [
@@ -87,7 +85,6 @@ class DataOperationsComponent(Component):
                 {"name": "Append or Update", "icon": "circle-plus"},
                 {"name": "Remove Keys", "icon": "eraser"},
                 {"name": "Rename Keys", "icon": "pencil-line"},
-                {"name": "Join Data", "icon": "merge"},
             ],
             real_time_refresh=True,
             limit=1,
@@ -366,15 +363,6 @@ class DataOperationsComponent(Component):
 
         return Data(**data_filtered)
 
-    def join_data(self) -> Data:
-        """Join multiple Data objects into one."""
-        if not self.data_is_list():
-            return self.data[0] if self.data else Data(data={})
-        result = self.data[0]
-        for other in self.data[1:]:
-            result = result + other
-        return result
-
     # Configuration and execution methods
     def update_build_config(self, build_config: dotdict, field_value: Any, field_name: str | None = None) -> dotdict:
         """Update build configuration based on selected action."""
@@ -436,7 +424,6 @@ class DataOperationsComponent(Component):
             "Append or Update": self.append_update,
             "Remove Keys": self.remove_keys,
             "Rename Keys": self.rename_keys,
-            "Join Data": self.join_data,
         }
 
         handler: Callable[[], Data] | None = action_map.get(action)

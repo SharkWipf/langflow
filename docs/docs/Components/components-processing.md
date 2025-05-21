@@ -101,8 +101,6 @@ This component can perform the following operations on Pandas [DataFrame](https:
 | Select Columns | Selects specific columns | columns_to_select |
 | Sort | Sorts DataFrame by column | column_name, ascending |
 | Tail | Returns last n rows | num_rows |
-| Append | Appends another DataFrame | other_df |
-| Merge | Merges with another DataFrame on a column | other_df, merge_on |
 
 <details>
 <summary>Parameters</summary>
@@ -112,9 +110,7 @@ This component can perform the following operations on Pandas [DataFrame](https:
 | Name | Display Name | Info |
 |------|--------------|------|
 | df | DataFrame | The input DataFrame to operate on. |
-| operation | Operation | The DataFrame operation to perform. Options include Add Column, Drop Column, Filter, Head, Rename Column, Replace Value, Select Columns, Sort, Tail, Append, and Merge. |
-| other_df | Other DataFrame | The second DataFrame for Append or Merge operations. |
-| merge_on | Merge On Column | Column to merge on when performing a Merge operation. |
+| operation | Operation | The DataFrame operation to perform. Options include Add Column, Drop Column, Filter, Head, Rename Column, Replace Value, Select Columns, Sort, and Tail. |
 | column_name | Column Name | The column name to use for the operation. |
 | filter_value | Filter Value | The value to filter rows by. |
 | ascending | Sort Ascending | Whether to sort in ascending order. |
