@@ -1,5 +1,14 @@
+import pandas as pd
 from langflow.custom import Component
-from langflow.io import BoolInput, DataFrameInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput
+from langflow.io import (
+    BoolInput,
+    DataFrameInput,
+    DropdownInput,
+    IntInput,
+    MessageTextInput,
+    Output,
+    StrInput,
+)
 from langflow.schema import DataFrame
 
 
@@ -19,13 +28,16 @@ class DataFrameOperationsComponent(Component):
         "Select Columns",
         "Sort",
         "Tail",
+        "Append",
+        "Merge",
     ]
 
     inputs = [
         DataFrameInput(
             name="df",
             display_name="DataFrame",
-            info="The input DataFrame to operate on.",
+            info="The input DataFrame(s) to operate on.",
+            is_list=True,
         ),
         DropdownInput(
             name="operation",
@@ -99,6 +111,13 @@ class DataFrameOperationsComponent(Component):
             dynamic=True,
             show=False,
         ),
+        StrInput(
+            name="merge_on",
+            display_name="Merge On Column",
+            info="Column name to merge on when performing a merge operation.",
+            dynamic=True,
+            show=False,
+        ),
     ]
 
     outputs = [
@@ -122,12 +141,14 @@ class DataFrameOperationsComponent(Component):
             "num_rows",
             "replace_value",
             "replacement_value",
+            "merge_on",
         ]
         for field in dynamic_fields:
             build_config[field]["show"] = False
 
         # Show relevant fields based on the selected operation
         if field_name == "operation":
+            build_config["df"]["is_list"] = field_value in {"Append", "Merge"}
             if field_value == "Filter":
                 build_config["column_name"]["show"] = True
                 build_config["filter_value"]["show"] = True
@@ -150,31 +171,40 @@ class DataFrameOperationsComponent(Component):
                 build_config["column_name"]["show"] = True
                 build_config["replace_value"]["show"] = True
                 build_config["replacement_value"]["show"] = True
+            elif field_value in {"Append", "Merge"}:
+                if field_value == "Merge":
+                    build_config["merge_on"]["show"] = True
 
         return build_config
 
     def perform_operation(self) -> DataFrame:
-        dataframe_copy = self.df.copy()
         operation = self.operation
 
+        if operation in {"Append", "Merge"}:
+            if operation == "Append":
+                return self.append_dataframes()
+            return self.merge_dataframes()
+
+        df_copy = self._single_df_copy(operation)
+
         if operation == "Filter":
-            return self.filter_rows_by_value(dataframe_copy)
+            return self.filter_rows_by_value(df_copy)
         if operation == "Sort":
-            return self.sort_by_column(dataframe_copy)
+            return self.sort_by_column(df_copy)
         if operation == "Drop Column":
-            return self.drop_column(dataframe_copy)
+            return self.drop_column(df_copy)
         if operation == "Rename Column":
-            return self.rename_column(dataframe_copy)
+            return self.rename_column(df_copy)
         if operation == "Add Column":
-            return self.add_column(dataframe_copy)
+            return self.add_column(df_copy)
         if operation == "Select Columns":
-            return self.select_columns(dataframe_copy)
+            return self.select_columns(df_copy)
         if operation == "Head":
-            return self.head(dataframe_copy)
+            return self.head(df_copy)
         if operation == "Tail":
-            return self.tail(dataframe_copy)
+            return self.tail(df_copy)
         if operation == "Replace Value":
-            return self.replace_values(dataframe_copy)
+            return self.replace_values(df_copy)
         msg = f"Unsupported operation: {operation}"
 
         raise ValueError(msg)
@@ -210,3 +240,35 @@ class DataFrameOperationsComponent(Component):
     def replace_values(self, df: DataFrame) -> DataFrame:
         df[self.column_name] = df[self.column_name].replace(self.replace_value, self.replacement_value)
         return DataFrame(df)
+
+    def _df_is_list(self) -> bool:
+        return isinstance(self.df, list)
+
+    def _single_df_copy(self, operation: str) -> DataFrame:
+        if self._df_is_list():
+            if len(self.df) != 1:
+                msg = f"{operation} operation requires a single DataFrame"
+                raise ValueError(msg)
+            df = self.df[0]
+        else:
+            df = self.df
+        return df.copy()
+
+    def append_dataframes(self) -> DataFrame:
+        df_list = self.df if self._df_is_list() else [self.df]
+        if len(df_list) < 2:
+            return DataFrame(df_list[0]) if df_list else DataFrame()
+        appended = pd.concat(df_list, ignore_index=True)
+        return DataFrame(appended)
+
+    def merge_dataframes(self) -> DataFrame:
+        if not self.merge_on:
+            msg = "Merge operation requires 'merge_on' column"
+            raise ValueError(msg)
+        df_list = self.df if self._df_is_list() else [self.df]
+        if len(df_list) < 2:
+            return DataFrame(df_list[0]) if df_list else DataFrame()
+        merged = df_list[0]
+        for df in df_list[1:]:
+            merged = merged.merge(df, on=self.merge_on)
+        return DataFrame(merged)
