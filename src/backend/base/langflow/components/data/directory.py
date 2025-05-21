@@ -26,6 +26,7 @@ class DirectoryComponent(Component):
             info="File types to load. Select one or more types or leave empty to load all supported types.",
             options=TEXT_FILE_TYPES,
             value=[],
+            combobox=True,
         ),
         IntInput(
             name="depth",
@@ -86,12 +87,9 @@ class DirectoryComponent(Component):
         # If no types are specified, use all supported types
         if not types:
             types = TEXT_FILE_TYPES
-
-        # Check if all specified types are valid
-        invalid_types = [t for t in types if t not in TEXT_FILE_TYPES]
-        if invalid_types:
-            msg = f"Invalid file types specified: {invalid_types}. Valid types are: {TEXT_FILE_TYPES}"
-            raise ValueError(msg)
+        else:
+            # Allow custom file types; remove duplicates
+            types = list(dict.fromkeys(types))
 
         valid_types = types
 
