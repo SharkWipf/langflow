@@ -1,5 +1,14 @@
+import pandas as pd
 from langflow.custom import Component
-from langflow.io import BoolInput, DataFrameInput, DropdownInput, IntInput, MessageTextInput, Output, StrInput
+from langflow.io import (
+    BoolInput,
+    DataFrameInput,
+    DropdownInput,
+    IntInput,
+    MessageTextInput,
+    Output,
+    StrInput,
+)
 from langflow.schema import DataFrame
 
 
@@ -19,6 +28,8 @@ class DataFrameOperationsComponent(Component):
         "Select Columns",
         "Sort",
         "Tail",
+        "Append",
+        "Merge",
     ]
 
     inputs = [
@@ -26,6 +37,13 @@ class DataFrameOperationsComponent(Component):
             name="df",
             display_name="DataFrame",
             info="The input DataFrame to operate on.",
+        ),
+        DataFrameInput(
+            name="other_df",
+            display_name="Other DataFrame",
+            info="Second DataFrame for append or merge operations.",
+            show=False,
+            dynamic=True,
         ),
         DropdownInput(
             name="operation",
@@ -99,6 +117,13 @@ class DataFrameOperationsComponent(Component):
             dynamic=True,
             show=False,
         ),
+        StrInput(
+            name="merge_on",
+            display_name="Merge On Column",
+            info="Column name to merge on when performing a merge operation.",
+            dynamic=True,
+            show=False,
+        ),
     ]
 
     outputs = [
@@ -122,6 +147,8 @@ class DataFrameOperationsComponent(Component):
             "num_rows",
             "replace_value",
             "replacement_value",
+            "other_df",
+            "merge_on",
         ]
         for field in dynamic_fields:
             build_config[field]["show"] = False
@@ -150,6 +177,10 @@ class DataFrameOperationsComponent(Component):
                 build_config["column_name"]["show"] = True
                 build_config["replace_value"]["show"] = True
                 build_config["replacement_value"]["show"] = True
+            elif field_value in {"Append", "Merge"}:
+                build_config["other_df"]["show"] = True
+                if field_value == "Merge":
+                    build_config["merge_on"]["show"] = True
 
         return build_config
 
@@ -175,6 +206,10 @@ class DataFrameOperationsComponent(Component):
             return self.tail(dataframe_copy)
         if operation == "Replace Value":
             return self.replace_values(dataframe_copy)
+        if operation == "Append":
+            return self.append_dataframe(dataframe_copy)
+        if operation == "Merge":
+            return self.merge_dataframes(dataframe_copy)
         msg = f"Unsupported operation: {operation}"
 
         raise ValueError(msg)
@@ -210,3 +245,18 @@ class DataFrameOperationsComponent(Component):
     def replace_values(self, df: DataFrame) -> DataFrame:
         df[self.column_name] = df[self.column_name].replace(self.replace_value, self.replacement_value)
         return DataFrame(df)
+
+    def append_dataframe(self, df: DataFrame) -> DataFrame:
+        if self.other_df is None:
+            return df
+        appended = pd.concat([df, self.other_df], ignore_index=True)
+        return DataFrame(appended)
+
+    def merge_dataframes(self, df: DataFrame) -> DataFrame:
+        if self.other_df is None:
+            return df
+        if not self.merge_on:
+            msg = "Merge operation requires 'merge_on' column"
+            raise ValueError(msg)
+        merged = df.merge(self.other_df, on=self.merge_on)
+        return DataFrame(merged)
