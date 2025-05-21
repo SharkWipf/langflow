@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest import mock
 from unittest.mock import Mock, patch
 
 import pytest
@@ -78,11 +79,14 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
             recursive=recursive,
             types=["py"],
             load_hidden=load_hidden,
+            whitelist_regexes=[],
+            blacklist_regexes=[],
         )
         mock_parallel_load_data.assert_called_once_with(
             mock_retrieve_file_paths.return_value,
             max_concurrency=max_concurrency,
             silent_errors=silent_errors,
+            load_function=mock.ANY,
         )
 
     def test_directory_without_mocks(self):
@@ -372,3 +376,54 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
             actual_texts = [r.text for r in results]
             expected_texts = ["content1", "content2"]
             assert actual_texts == expected_texts, f"Expected texts {expected_texts}, got {actual_texts}"
+
+    def test_directory_relative_paths(self):
+        directory_component = DirectoryComponent()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            (base / "root.txt").write_text("root", encoding="utf-8")
+            (base / "sub").mkdir()
+            (base / "sub" / "child.txt").write_text("child", encoding="utf-8")
+
+            directory_component.set_attributes(
+                {
+                    "path": str(base),
+                    "use_multithreading": False,
+                    "recursive": True,
+                    "types": ["txt"],
+                    "silent_errors": False,
+                }
+            )
+
+            results = directory_component.load_directory()
+            rel_paths = {r.data.get("relative_path") for r in results}
+            assert "root.txt" in rel_paths
+            assert "sub/child.txt" in rel_paths
+            assert all(r.data.get("base_path") == str(base) for r in results)
+            assert all(str(base) in r.data.get("file_path") for r in results)
+
+    def test_directory_regex_filters(self):
+        directory_component = DirectoryComponent()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            (base / "include.txt").write_text("inc", encoding="utf-8")
+            (base / "exclude.txt").write_text("exc", encoding="utf-8")
+            (base / "other.txt").write_text("oth", encoding="utf-8")
+
+            directory_component.set_attributes(
+                {
+                    "path": str(base),
+                    "use_multithreading": False,
+                    "recursive": True,
+                    "types": ["txt"],
+                    "silent_errors": False,
+                    "whitelist_filters": "include",
+                    "blacklist_filters": "exclude",
+                }
+            )
+
+            results = directory_component.load_directory()
+            assert len(results) == 1
+            assert results[0].data.get("relative_path") == "include.txt"

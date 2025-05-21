@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from collections.abc import Callable
 from concurrent import futures
@@ -64,6 +65,8 @@ def retrieve_file_paths(
     recursive: bool,  # noqa: FBT001
     depth: int,
     types: list[str] = TEXT_FILE_TYPES,
+    whitelist_regexes: list[str] | None = None,
+    blacklist_regexes: list[str] | None = None,
 ) -> list[str]:
     path = format_directory_path(path)
     path_obj = Path(path)
@@ -73,6 +76,16 @@ def retrieve_file_paths(
 
     def match_types(p: Path) -> bool:
         return any(p.suffix == f".{t}" for t in types) if types else True
+
+    def match_whitelist(p: Path) -> bool:
+        if not whitelist_regexes:
+            return True
+        return any(re.search(pattern, str(p)) for pattern in whitelist_regexes)
+
+    def match_blacklist(p: Path) -> bool:
+        if not blacklist_regexes:
+            return True
+        return not any(re.search(pattern, str(p)) for pattern in blacklist_regexes)
 
     def is_not_hidden(p: Path) -> bool:
         return not is_hidden(p) or load_hidden
@@ -86,7 +99,11 @@ def retrieve_file_paths(
 
     glob = "**/*" if recursive else "*"
     paths = walk_level(path_obj, depth) if depth else path_obj.glob(glob)
-    return [str(p) for p in paths if p.is_file() and match_types(p) and is_not_hidden(p)]
+    return [
+        str(p)
+        for p in paths
+        if p.is_file() and match_types(p) and is_not_hidden(p) and match_whitelist(p) and match_blacklist(p)
+    ]
 
 
 def partition_file_to_data(file_path: str, *, silent_errors: bool) -> Data | None:
@@ -135,7 +152,12 @@ def parse_pdf_to_text(file_path: str) -> str:
         return "\n\n".join([page.extract_text() for page in reader.pages])
 
 
-def parse_text_file_to_data(file_path: str, *, silent_errors: bool) -> Data | None:
+def parse_text_file_to_data(
+    file_path: str,
+    *,
+    silent_errors: bool,
+    base_path: str | None = None,
+) -> Data | None:
     try:
         if file_path.endswith(".pdf"):
             text = parse_pdf_to_text(file_path)
@@ -164,7 +186,14 @@ def parse_text_file_to_data(file_path: str, *, silent_errors: bool) -> Data | No
             raise ValueError(msg) from e
         return None
 
-    return Data(data={"file_path": file_path, "text": text})
+    data = {"file_path": file_path, "text": text}
+    if base_path:
+        try:
+            data["relative_path"] = str(Path(file_path).resolve().relative_to(Path(base_path).resolve()))
+        except ValueError:
+            data["relative_path"] = str(Path(file_path).name)
+        data["base_path"] = str(Path(base_path))
+    return Data(data=data)
 
 
 # ! Removing unstructured dependency until

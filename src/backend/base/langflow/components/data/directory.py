@@ -1,6 +1,12 @@
 from langflow.base.data.utils import TEXT_FILE_TYPES, parallel_load_data, parse_text_file_to_data, retrieve_file_paths
 from langflow.custom import Component
-from langflow.io import BoolInput, IntInput, MessageTextInput, MultiselectInput
+from langflow.io import (
+    BoolInput,
+    IntInput,
+    MessageTextInput,
+    MultiselectInput,
+    StrInput,
+)
 from langflow.schema import Data
 from langflow.schema.dataframe import DataFrame
 from langflow.template import Output
@@ -65,6 +71,18 @@ class DirectoryComponent(Component):
             advanced=True,
             info="If true, multithreading will be used.",
         ),
+        StrInput(
+            name="whitelist_filters",
+            display_name="Whitelist Filters",
+            info="Regex patterns (one per line) to include specific files.",
+            advanced=True,
+        ),
+        StrInput(
+            name="blacklist_filters",
+            display_name="Blacklist Filters",
+            info="Regex patterns (one per line) to exclude specific files.",
+            advanced=True,
+        ),
     ]
 
     outputs = [
@@ -81,27 +99,52 @@ class DirectoryComponent(Component):
         recursive = self.recursive
         silent_errors = self.silent_errors
         use_multithreading = self.use_multithreading
+        whitelist_filters = self.whitelist_filters
+        blacklist_filters = self.blacklist_filters
 
         resolved_path = self.resolve_path(path)
 
         # If no types are specified, use all supported types
-        if not types:
-            types = TEXT_FILE_TYPES
-        else:
-            # Allow custom file types; remove duplicates
-            types = list(dict.fromkeys(types))
+        types = TEXT_FILE_TYPES if not types else list(dict.fromkeys(types))
 
         valid_types = types
 
+        def parse_filters(filters: str | None) -> list[str]:
+            if not filters:
+                return []
+            return [line.strip() for line in filters.splitlines() if line.strip()]
+
         file_paths = retrieve_file_paths(
-            resolved_path, load_hidden=load_hidden, recursive=recursive, depth=depth, types=valid_types
+            resolved_path,
+            load_hidden=load_hidden,
+            recursive=recursive,
+            depth=depth,
+            types=valid_types,
+            whitelist_regexes=parse_filters(whitelist_filters),
+            blacklist_regexes=parse_filters(blacklist_filters),
         )
 
         loaded_data = []
         if use_multithreading:
-            loaded_data = parallel_load_data(file_paths, silent_errors=silent_errors, max_concurrency=max_concurrency)
+            loaded_data = parallel_load_data(
+                file_paths,
+                silent_errors=silent_errors,
+                max_concurrency=max_concurrency,
+                load_function=lambda fp, *, silent_errors: parse_text_file_to_data(
+                    fp,
+                    silent_errors=silent_errors,
+                    base_path=resolved_path,
+                ),
+            )
         else:
-            loaded_data = [parse_text_file_to_data(file_path, silent_errors=silent_errors) for file_path in file_paths]
+            loaded_data = [
+                parse_text_file_to_data(
+                    file_path,
+                    silent_errors=silent_errors,
+                    base_path=resolved_path,
+                )
+                for file_path in file_paths
+            ]
 
         valid_data = [x for x in loaded_data if x is not None and isinstance(x, Data)]
         self.status = valid_data
