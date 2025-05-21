@@ -35,6 +35,8 @@ import NodeUpdateComponent from "./components/NodeUpdateComponent";
 import RenderInputParameters from "./components/RenderInputParameters";
 import { NodeIcon } from "./components/nodeIcon";
 import { useBuildStatus } from "./hooks/use-get-build-status";
+import { groupByFamily } from "@/utils/utils";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const MemoizedRenderInputParameters = memo(RenderInputParameters);
 const MemoizedNodeIcon = memo(NodeIcon);
@@ -102,6 +104,24 @@ function GenericNode({
   );
 
   const showNode = data.showNode ?? true;
+
+  const { setFilterEdge, nodes: flowNodes } = useFlowStore(
+    useShallow((state: FlowStoreType) => ({
+      setFilterEdge: state.setFilterEdge,
+      nodes: state.nodes,
+    })),
+  );
+  const dataTypes = useTypesStore((state) => state.data);
+  const { setOpen } = useSidebar();
+
+  const handleNodeDoubleClick = useCallback(() => {
+    const outputTypes = data.node?.output_types ?? data.node?.base_classes ?? [];
+    if (outputTypes.length === 0) return;
+    setFilterEdge(
+      groupByFamily(dataTypes, outputTypes.join("\n"), false, flowNodes),
+    );
+    setOpen(true);
+  }, [data.node, dataTypes, flowNodes, setFilterEdge, setOpen]);
 
   const getValidationStatus = useCallback((data) => {
     setValidationStatus(data);
@@ -419,6 +439,7 @@ function GenericNode({
             showNode ? "border-b" : "relative",
             hasDescription && "gap-3",
           )}
+          onDoubleClick={handleNodeDoubleClick}
         >
           <div
             data-testid={"div-generic-node"}
