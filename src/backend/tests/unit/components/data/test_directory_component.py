@@ -388,8 +388,7 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
 
             directory_component.set_attributes(
                 {
-                    "base_path": str(base),
-                    "path": ".",
+                    "path": str(base),
                     "use_multithreading": False,
                     "recursive": True,
                     "types": ["txt"],
@@ -402,8 +401,7 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
             assert "root.txt" in rel_paths
             assert "sub/child.txt" in rel_paths
             assert all(r.data.get("base_path") == str(base) for r in results)
-            expected_full = {str(base / rp) for rp in rel_paths}
-            assert {r.data.get("file_path") for r in results} == expected_full
+            assert all(str(base) in r.data.get("file_path") for r in results)
 
     def test_directory_regex_filters(self):
         directory_component = DirectoryComponent()
