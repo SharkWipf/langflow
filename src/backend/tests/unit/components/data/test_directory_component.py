@@ -401,7 +401,32 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
             assert "root.txt" in rel_paths
             assert "sub/child.txt" in rel_paths
             assert all(r.data.get("base_path") == str(base) for r in results)
-            assert all(str(base) in r.data.get("file_path") for r in results)
+        assert all(str(base) in r.data.get("file_path") for r in results)
+
+    def test_directory_base_and_relative_paths(self):
+        directory_component = DirectoryComponent()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            subdir = base / "plugins"
+            subdir.mkdir()
+            (subdir / "child.txt").write_text("child", encoding="utf-8")
+
+            directory_component.set_attributes(
+                {
+                    "base_path": str(base),
+                    "relative_path": "plugins",
+                    "use_multithreading": False,
+                    "recursive": True,
+                    "types": ["txt"],
+                    "silent_errors": False,
+                }
+            )
+
+            results = directory_component.load_directory()
+            assert len(results) == 1
+            assert results[0].data.get("relative_path") == "plugins/child.txt"
+            assert results[0].data.get("file_path").endswith("plugins/child.txt")
 
     def test_directory_regex_filters(self):
         directory_component = DirectoryComponent()
