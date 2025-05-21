@@ -189,10 +189,11 @@ def parse_text_file_to_data(
     data = {"file_path": file_path, "text": text}
     if base_path:
         try:
-            data["relative_path"] = str(Path(file_path).resolve().relative_to(Path(base_path).resolve()))
+            relative = str(Path(file_path).resolve().relative_to(Path(base_path).resolve()))
         except ValueError:
-            data["relative_path"] = str(Path(file_path).name)
-        data["base_path"] = str(Path(base_path))
+            relative = str(Path(file_path).name)
+        if relative:
+            data["relative_path"] = relative
     return Data(data=data)
 
 

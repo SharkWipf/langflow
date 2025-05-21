@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from langflow.base.data.utils import TEXT_FILE_TYPES, parallel_load_data, parse_text_file_to_data, retrieve_file_paths
 from langflow.custom import Component
 from langflow.io import (
@@ -25,6 +27,12 @@ class DirectoryComponent(Component):
             info="Path to the directory to load files from. Defaults to current directory ('.')",
             value=".",
             tool_mode=True,
+        ),
+        MessageTextInput(
+            name="base_path",
+            display_name="Base Path",
+            info="Base directory used to resolve the path relative to.",
+            advanced=True,
         ),
         MultiselectInput(
             name="types",
@@ -92,6 +100,7 @@ class DirectoryComponent(Component):
 
     def load_directory(self) -> list[Data]:
         path = self.path
+        base_path = self.base_path
         types = self.types
         depth = self.depth
         max_concurrency = self.max_concurrency
@@ -102,7 +111,12 @@ class DirectoryComponent(Component):
         whitelist_filters = self.whitelist_filters
         blacklist_filters = self.blacklist_filters
 
-        resolved_path = self.resolve_path(path)
+        if base_path:
+            resolved_base_path = self.resolve_path(base_path)
+            resolved_path = self.resolve_path(str(Path(resolved_base_path) / path))
+        else:
+            resolved_base_path = ""
+            resolved_path = self.resolve_path(path)
 
         # If no types are specified, use all supported types
         types = TEXT_FILE_TYPES if not types else list(dict.fromkeys(types))
@@ -124,6 +138,8 @@ class DirectoryComponent(Component):
             blacklist_regexes=parse_filters(blacklist_filters),
         )
 
+        base_arg = resolved_base_path if base_path else None
+
         loaded_data = []
         if use_multithreading:
             loaded_data = parallel_load_data(
@@ -133,7 +149,7 @@ class DirectoryComponent(Component):
                 load_function=lambda fp, *, silent_errors: parse_text_file_to_data(
                     fp,
                     silent_errors=silent_errors,
-                    base_path=resolved_path,
+                    base_path=base_arg,
                 ),
             )
         else:
@@ -141,7 +157,7 @@ class DirectoryComponent(Component):
                 parse_text_file_to_data(
                     file_path,
                     silent_errors=silent_errors,
-                    base_path=resolved_path,
+                    base_path=base_arg,
                 )
                 for file_path in file_paths
             ]

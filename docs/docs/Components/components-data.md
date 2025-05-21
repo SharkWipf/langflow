@@ -84,7 +84,8 @@ This component recursively loads files from a directory, with options for file t
 
 | Input              | Type             | Description                                        |
 | ------------------ | ---------------- | -------------------------------------------------- |
-| path               | MessageTextInput | The path to the directory to load files from.      |
+| path               | MessageTextInput | The path to the directory to load files from. Relative to `base_path` when provided. |
+| base_path          | MessageTextInput | Base directory used to resolve `path`. |
 | types              | MessageTextInput | The file types to load (leave empty to load all types). |
 | depth              | IntInput         | The depth to search for files.                     |
 | max_concurrency    | IntInput         | The maximum concurrency for loading files.         |
@@ -97,7 +98,7 @@ This component recursively loads files from a directory, with options for file t
 
 | Output | Type       | Description                         |
 | ------ | ---------- | ----------------------------------- |
-| data   | List[Data] | The loaded file data from the directory. |
+| data   | List[Data] | The loaded file data from the directory. Each item includes `file_path` and, when `base_path` is provided, `relative_path`. |
 | dataframe | DataFrame | The loaded file data in tabular DataFrame format. |
 
 </details>
