@@ -6,8 +6,8 @@ from langflow.io import (
     BoolInput,
     IntInput,
     MessageTextInput,
+    MultilineInput,
     MultiselectInput,
-    StrInput,
 )
 from langflow.schema import Data
 from langflow.schema.dataframe import DataFrame
@@ -79,13 +79,13 @@ class DirectoryComponent(Component):
             advanced=True,
             info="If true, multithreading will be used.",
         ),
-        StrInput(
+        MultilineInput(
             name="whitelist_filters",
             display_name="Whitelist Filters",
             info="Regex patterns (one per line) to include specific files.",
             advanced=True,
         ),
-        StrInput(
+        MultilineInput(
             name="blacklist_filters",
             display_name="Blacklist Filters",
             info="Regex patterns (one per line) to exclude specific files.",
