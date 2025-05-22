@@ -61,9 +61,9 @@ class FormatDirectoryDataComponent(Component):
             if not isinstance(item, Data):
                 item = Data(data=item)
             path = item.data.get("relative_path") or item.data.get("file_path", "")
-            marker = "\n---\n" if path.lower().endswith(".md") else "```"
+            marker = "\n---\n\n" if path.lower().endswith(".md") else "```\n"
             content = str(item.get_text() or "").lstrip("\n").rstrip("\n")
-            block = f"{path}:\n{marker}{content}"
+            block = f"`{path}`:\n{marker}{content}"
             if content:
                 block += "\n"
             block += f"{marker}\n\n"
