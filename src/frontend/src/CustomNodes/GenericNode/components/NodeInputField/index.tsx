@@ -98,8 +98,7 @@ export default function NodeInputField({
     (!LANGFLOW_SUPPORTED_TYPES.has(type ?? "") ||
       (optionalHandle && optionalHandle.length > 0)) &&
     !isToolMode &&
-    !hasRefreshButton &&
-    !(data.node?.template[name]?.dynamic && data.node?.template[name]?.list);
+    !hasRefreshButton;
 
   const isFlexView = FLEX_VIEW_TYPES.includes(type ?? "");
 

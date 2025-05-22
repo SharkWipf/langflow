@@ -126,7 +126,7 @@ export default function InputListComponent({
               <HandleRenderComponent
                 left={true}
                 tooltipTitle={tooltipTitle}
-                id={{ ...(inputId as any), index }}
+                id={{ ...inputId, index }}
                 title={componentName || ""}
                 myData={myData}
                 colors={colors}
