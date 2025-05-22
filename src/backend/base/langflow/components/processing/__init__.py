@@ -6,7 +6,6 @@ from .directory_tree import DirectoryTreeComponent
 from .extract_key import ExtractDataKeyComponent
 from .filter_data_values import DataFilterComponent
 from .format_directory_data import FormatDirectoryDataComponent
-from .join_texts import JoinTextsComponent
 from .json_cleaner import JSONCleaner
 from .lambda_filter import LambdaFilterComponent
 from .llm_router import LLMRouterComponent
@@ -18,7 +17,6 @@ from .parser import ParserComponent
 from .regex import RegexExtractorComponent
 from .select_data import SelectDataComponent
 from .split_text import SplitTextComponent
-from .text_operations import TextOperationsComponent
 from .update_data import UpdateDataComponent
 
 __all__ = [
@@ -31,7 +29,6 @@ __all__ = [
     "ExtractDataKeyComponent",
     "FormatDirectoryDataComponent",
     "JSONCleaner",
-    "JoinTextsComponent",
     "LLMRouterComponent",
     "LambdaFilterComponent",
     "MergeDataComponent",
@@ -43,6 +40,5 @@ __all__ = [
     "RegexExtractorComponent",
     "SelectDataComponent",
     "SplitTextComponent",
-    "TextOperationsComponent",
     "UpdateDataComponent",
 ]
