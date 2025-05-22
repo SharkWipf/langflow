@@ -177,7 +177,7 @@ class OpenRouterComponent(LCModelComponent):
             raise ValueError(error_msg) from err
 
         if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
+            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
         return output
 
     def structured_output(self) -> Data:
