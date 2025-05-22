@@ -420,8 +420,8 @@ class TestDirectoryComponent(ComponentTestBaseWithoutClient):
                     "recursive": True,
                     "types": ["txt"],
                     "silent_errors": False,
-                    "whitelist_filters": "include",
-                    "blacklist_filters": "exclude",
+                    "whitelist_filters": "include\nother",
+                    "blacklist_filters": "exclude\nignore",
                 }
             )
 
