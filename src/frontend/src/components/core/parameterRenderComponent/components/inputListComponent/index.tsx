@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "../../../../ui/input";
@@ -7,11 +7,6 @@ import { ButtonInputList } from "./components/button-input-list";
 
 import { GRADIENT_CLASS } from "@/constants/constants";
 import { cn } from "../../../../../utils/utils";
-import HandleRenderComponent from "@/CustomNodes/GenericNode/components/handleRenderComponent";
-import { useTypesStore } from "@/stores/typesStore";
-import useFlowStore from "@/stores/flowStore";
-import { getNodeInputColors } from "@/CustomNodes/helpers/get-node-input-colors";
-import { getNodeInputColorsName } from "@/CustomNodes/helpers/get-node-input-colors-name";
 import { getPlaceholder } from "../../helpers/get-placeholder-disabled";
 import { InputListComponentType, InputProps } from "../../types";
 import { DeleteButtonInputList } from "./components/delete-button-input-list";
@@ -25,34 +20,10 @@ export default function InputListComponent({
   id,
   placeholder,
   listAddLabel,
-  inputId,
-  nodeId,
-  nodeClass,
 }: InputProps<string[], InputListComponentType>): JSX.Element {
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const types = useTypesStore((state) => state.types);
-  const myData = useTypesStore((state) => state.data);
-  const setFilterEdge = useFlowStore((state) => state.setFilterEdge);
-  const nodes = useFlowStore((state) => state.nodes);
-  const showNode = useMemo(() => {
-    return nodes.find((n) => n.id === nodeId)?.data?.showNode ?? true;
-  }, [nodes, nodeId]);
-
-  const colors = useMemo(
-    () => getNodeInputColors(inputId?.inputTypes, inputId?.type, types),
-    [inputId, types],
-  );
-  const colorName = useMemo(
-    () => getNodeInputColorsName(inputId?.inputTypes, inputId?.type, types),
-    [inputId, types],
-  );
-  const tooltipTitle = useMemo(
-    () => inputId?.inputTypes?.join("\n") ?? inputId?.type ?? "",
-    [inputId],
-  );
 
   useEffect(() => {
     if (disabled && value.length > 0 && value[0] !== "") {
@@ -122,21 +93,6 @@ export default function InputListComponent({
       <div className="mt-2 flex w-full flex-col gap-3">
         {value.map((singleValue, index) => (
           <div key={index} className="flex w-full items-center">
-            {inputId && (
-              <HandleRenderComponent
-                left={true}
-                tooltipTitle={tooltipTitle}
-                id={{ ...inputId, index }}
-                title={componentName || ""}
-                myData={myData}
-                colors={colors}
-                setFilterEdge={setFilterEdge}
-                showNode={showNode}
-                testIdComplement={`${nodeClass?.type?.toLowerCase() ?? ""}-${showNode ? "shownode" : "noshownode"}`}
-                nodeId={nodeId ?? ""}
-                colorName={colorName}
-              />
-            )}
             {focusedIndex !== index && !disabled && (
               <div
                 className={cn(

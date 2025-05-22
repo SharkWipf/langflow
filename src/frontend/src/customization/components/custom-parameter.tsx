@@ -59,7 +59,6 @@ export function CustomParameterComponent({
       placeholder={placeholder}
       isToolMode={isToolMode}
       nodeInformationMetadata={nodeInformationMetadata}
-      inputId={inputId}
     />
   );
 }
