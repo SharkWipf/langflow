@@ -1,5 +1,4 @@
-import json
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from typing import Any
 
 import httpx
@@ -12,14 +11,10 @@ from langflow.field_typing.range_spec import RangeSpec
 from langflow.inputs import (
     DropdownInput,
     IntInput,
-    NestedDictInput,
     SecretStrInput,
     SliderInput,
     StrInput,
 )
-from langflow.io import Output
-from langflow.schema.data import Data
-from langflow.schema.dataframe import DataFrame
 
 
 class OpenRouterComponent(LCModelComponent):
@@ -30,22 +25,6 @@ class OpenRouterComponent(LCModelComponent):
         "OpenRouter provides unified access to multiple AI models from different providers through a single API."
     )
     icon = "OpenRouter"
-
-    outputs = [
-        *LCModelComponent.outputs,
-        Output(
-            display_name="Structured Output",
-            name="structured_output",
-            method="structured_output",
-            hidden=True,
-        ),
-        Output(
-            display_name="DataFrame",
-            name="structured_output_dataframe",
-            method="structured_output_dataframe",
-            hidden=True,
-        ),
-    ]
 
     inputs = [
         *LCModelComponent._base_inputs,
@@ -95,13 +74,6 @@ class OpenRouterComponent(LCModelComponent):
             display_name="Max Tokens",
             info="Maximum number of tokens to generate",
             advanced=True,
-        ),
-        NestedDictInput(
-            name="response_schema",
-            display_name="Response Schema",
-            advanced=True,
-            input_types=["NestedDict"],
-            info="JSON schema for structured outputs.",
         ),
     ]
 
@@ -171,15 +143,11 @@ class OpenRouterComponent(LCModelComponent):
             kwargs["default_headers"] = headers
 
         try:
-            output = ChatOpenAI(**kwargs)
+            return ChatOpenAI(**kwargs)
         except (ValueError, httpx.HTTPError) as err:
             error_msg = f"Failed to build model: {err!s}"
             self.log(error_msg)
             raise ValueError(error_msg) from err
-
-        if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
-        return output
 
     def _get_exception_message(self, e: Exception) -> str | None:
         """Get a message from an OpenRouter exception.
@@ -230,29 +198,5 @@ class OpenRouterComponent(LCModelComponent):
             build_config["provider"]["value"] = "Error loading providers"
             build_config["model_name"]["options"] = ["Error loading models"]
             build_config["model_name"]["value"] = "Error loading models"
-        schema = field_value if field_name == "response_schema" else self.response_schema
-        has_schema = bool(schema)
-        build_config["structured_output"]["hidden"] = not has_schema
-        build_config["structured_output_dataframe"]["hidden"] = not has_schema
 
         return build_config
-
-    def structured_output(self) -> Data:
-        if not self.response_schema:
-            return Data(data={})
-        result = self.text_response()
-        content = result.content if hasattr(result, "content") else result
-        try:
-            parsed = json.loads(content, object_pairs_hook=OrderedDict)
-        except Exception as exc:
-            msg = "Failed to parse structured output"
-            raise ValueError(msg) from exc
-        return Data(text_key="results", data={"results": parsed})
-
-    def structured_output_dataframe(self) -> DataFrame:
-        data = self.structured_output().data.get("results")
-        if isinstance(data, list):
-            return DataFrame(data=data)
-        if data is None:
-            return DataFrame()
-        return DataFrame(data=[data])
