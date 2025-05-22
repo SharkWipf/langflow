@@ -10,6 +10,7 @@ from langflow.base.models.model import LCModelComponent
 from langflow.field_typing import LanguageModel
 from langflow.field_typing.range_spec import RangeSpec
 from langflow.inputs import (
+    BoolInput,
     DropdownInput,
     IntInput,
     NestedDictInput,
@@ -21,6 +22,78 @@ from langflow.schema.data import Data
 from langflow.schema.dataframe import DataFrame
 from langflow.template.field.base import Output
 
+_PROPERTY_THRESHOLD_1 = 10
+_PROPERTY_THRESHOLD_2 = 100
+
+
+def _count_schema_property_keys(schema: Any) -> int:
+    """Recursively count keys under every ``properties`` object."""
+    count = 0
+
+    def _walk(obj: Any):
+        nonlocal count
+        if isinstance(obj, dict):
+            props = obj.get("properties")
+            if isinstance(props, dict):
+                for v in props.values():
+                    count += 1
+                    _walk(v)
+            for v in obj.values():
+                _walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(schema)
+    return count
+
+
+def _rename_schema_properties(schema: Any):
+    """Return schema copy with keys prefixed and mapping new->old."""
+    schema_copy = json.loads(json.dumps(schema))
+    total = _count_schema_property_keys(schema_copy)
+    digits = 1 if total < _PROPERTY_THRESHOLD_1 else 2 if total < _PROPERTY_THRESHOLD_2 else 3
+
+    counter = 0
+    mapping_new_to_old: dict[str, str] = {}
+
+    def _walk(obj: Any):
+        nonlocal counter
+        if isinstance(obj, dict):
+            props = obj.get("properties")
+            if isinstance(props, dict):
+                new_props = OrderedDict()
+                local_old_to_new = {}
+                for old_key, val in props.items():
+                    new_key = f"{counter:0{digits}d}_{old_key}"
+                    counter += 1
+                    mapping_new_to_old[new_key] = old_key
+                    local_old_to_new[old_key] = new_key
+                    new_props[new_key] = _walk(val)
+                obj["properties"] = new_props
+                if isinstance(obj.get("required"), list):
+                    obj["required"] = [local_old_to_new.get(k, k) for k in obj["required"]]
+            for k, v in obj.items():
+                if k != "properties":
+                    obj[k] = _walk(v)
+        elif isinstance(obj, list):
+            return [_walk(i) for i in obj]
+        return obj
+
+    renamed = _walk(schema_copy)
+    return renamed, mapping_new_to_old
+
+
+def _revert_json_keys(data: Any, mapping_new_to_old: dict[str, str]):
+    if isinstance(data, dict):
+        reverted = OrderedDict()
+        for k, v in data.items():
+            reverted[mapping_new_to_old.get(k, k)] = _revert_json_keys(v, mapping_new_to_old)
+        return reverted
+    if isinstance(data, list):
+        return [_revert_json_keys(i, mapping_new_to_old) for i in data]
+    return data
+
 
 class OpenRouterComponent(LCModelComponent):
     """OpenRouter API component for language models."""
@@ -30,6 +103,8 @@ class OpenRouterComponent(LCModelComponent):
         "OpenRouter provides unified access to multiple AI models from different providers through a single API."
     )
     icon = "OpenRouter"
+
+    schema_reorder_workaround: bool = False
 
     inputs = [
         *LCModelComponent._base_inputs,
@@ -86,6 +161,12 @@ class OpenRouterComponent(LCModelComponent):
             advanced=True,
             info="JSON schema for structured outputs.",
         ),
+        BoolInput(
+            name="schema_reorder_workaround",
+            display_name="Schema Reorder Workaround",
+            info="Rename schema properties to preserve ordering",
+            advanced=True,
+        ),
     ]
 
     outputs = [
@@ -103,6 +184,8 @@ class OpenRouterComponent(LCModelComponent):
             hidden=True,
         ),
     ]
+
+    _schema_mapping: dict[str, str] | None = None
 
     def fetch_models(self) -> dict[str, list]:
         """Fetch available models from OpenRouter API and organize them by provider."""
@@ -177,7 +260,15 @@ class OpenRouterComponent(LCModelComponent):
             raise ValueError(error_msg) from err
 
         if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
+            schema_to_use = self.response_schema
+            if getattr(self, "schema_reorder_workaround", False):
+                schema_to_use, mapping = _rename_schema_properties(self.response_schema)
+                self._schema_mapping = mapping
+            else:
+                self._schema_mapping = None
+            output = output.bind(response_format={"type": "json_schema", "json_schema": schema_to_use})
+        else:
+            self._schema_mapping = None
         return output
 
     def structured_output(self) -> Data:
@@ -190,6 +281,12 @@ class OpenRouterComponent(LCModelComponent):
             if parsed is None:
                 error_msg = "Unable to parse structured output"
                 raise ValueError(error_msg) from err
+        if (
+            parsed is not None
+            and getattr(self, "schema_reorder_workaround", False)
+            and getattr(self, "_schema_mapping", None)
+        ):
+            parsed = _revert_json_keys(parsed, self._schema_mapping)
         return Data(text_key="results", data={"results": parsed})
 
     def as_dataframe(self) -> DataFrame:
