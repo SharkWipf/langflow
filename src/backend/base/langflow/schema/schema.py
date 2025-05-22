@@ -2,7 +2,7 @@ from collections.abc import Generator
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing_extensions import TypedDict
 
 from langflow.schema.data import Data
@@ -36,7 +36,8 @@ class ErrorLog(TypedDict):
 
 
 class OutputValue(BaseModel):
-    message: ErrorLog | StreamURL | dict | list | str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    message: ErrorLog | StreamURL | dict | list | str | DataFrame
     type: str
 
 
@@ -108,9 +109,9 @@ def build_output_logs(vertex, result) -> dict:
                 message = ""
 
             case LogType.ARRAY:
-                if isinstance(message, DataFrame):
-                    message = message.to_dict(orient="records")
-                message = [serialize(item) for item in message]
+                # Keep DataFrame objects untouched for proper table display
+                if not isinstance(message, DataFrame):
+                    message = [serialize(item) for item in message]
         name = output.get("name", f"output_{index}")
         outputs |= {name: OutputValue(message=message, type=type_).model_dump()}
 
