@@ -859,10 +859,18 @@ class Component(CustomComponent):
         self._validate_inputs(params)
         attributes = {}
         for key, value in params.items():
-            if key in self.__dict__ and value != getattr(self, key):
+            # If the key corresponds to a defined input field for this component (i.e., key in self._inputs),
+            # it's not a "reserved word" in the sense of an internal attribute clash.
+            # It's an input whose value might be getting updated.
+            # The original check was too broad.
+            # We only raise an error if `key` is an existing instance attribute (`in self.__dict__`),
+            # AND it's NOT one of the component's defined input fields (`key not in self._inputs`),
+            # AND its value is different.
+            if key in self.__dict__ and key not in self._inputs and value != getattr(self, key):
                 msg = (
-                    f"{self.__class__.__name__} defines an input parameter named '{key}' "
-                    f"that is a reserved word and cannot be used."
+                    f"{self.__class__.__name__} is trying to set an input parameter named '{key}' "
+                    f"which clashes with a pre-existing internal attribute of the same name that is not an input. "
+                    f"Please rename the input field or the internal attribute."
                 )
                 raise ValueError(msg)
             attributes[key] = value

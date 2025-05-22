@@ -36,6 +36,31 @@ class OpenAIModelComponent(LCModelComponent):
 
     inputs = [
         *LCModelComponent._base_inputs,
+        DropdownInput(
+            name="model_name",
+            display_name="Model Name",
+            advanced=False,
+            options=OPENAI_MODEL_NAMES + OPENAI_REASONING_MODEL_NAMES,
+            value=OPENAI_MODEL_NAMES[1],
+            combobox=True,
+            real_time_refresh=True,
+        ),
+        DropdownInput(
+            name="response_format",
+            display_name="Response Format",
+            options=["text", "json_object", "json_schema"],
+            value="text",
+            info="Controls the output format. 'text' for standard output. 'json_object' for generic JSON. 'json_schema' to enforce a specific JSON schema (requires Response Schema input).",
+            real_time_refresh=True,
+            advanced=False,
+        ),
+        NestedDictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            info="JSON schema for structured outputs. Used only when Response Format is 'json_schema'.",
+            show=False,
+            input_types=["dict", "Data"],
+        ),
         IntInput(
             name="max_tokens",
             display_name="Max Tokens",
@@ -50,25 +75,10 @@ class OpenAIModelComponent(LCModelComponent):
             info="Additional keyword arguments to pass to the model.",
         ),
         BoolInput(
-            name="json_mode",
-            display_name="JSON Mode",
+            name="json_mode", # Retained as per original file, user said it's unrelated
+            display_name="JSON Mode (Legacy)",
             advanced=True,
-            info="If True, it will output JSON regardless of passing a schema.",
-        ),
-        NestedDictInput(
-            name="response_schema",
-            display_name="Response Schema",
-            advanced=True,
-            info="JSON schema for structured outputs.",
-        ),
-        DropdownInput(
-            name="model_name",
-            display_name="Model Name",
-            advanced=False,
-            options=OPENAI_MODEL_NAMES + OPENAI_REASONING_MODEL_NAMES,
-            value=OPENAI_MODEL_NAMES[1],
-            combobox=True,
-            real_time_refresh=True,
+            info="Legacy: If True, it will output JSON regardless of passing a schema. Prefer using 'Response Format'.",
         ),
         StrInput(
             name="openai_api_base",
@@ -116,21 +126,9 @@ class OpenAIModelComponent(LCModelComponent):
         ),
     ]
 
-    outputs = [
-        *LCModelComponent.outputs,
-        Output(
-            name="structured_output",
-            display_name="Structured Output",
-            method="structured_output",
-            hidden=True,
-        ),
-        Output(
-            name="structured_output_dataframe",
-            display_name="DataFrame",
-            method="as_dataframe",
-            hidden=True,
-        ),
-    ]
+    # Outputs are now dynamically managed by update_outputs
+    # We still need the methods for when they are active.
+    # The base LCModelComponent.outputs are inherited.
 
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]
         parameters = {
@@ -150,13 +148,29 @@ class OpenAIModelComponent(LCModelComponent):
             logger.info("Getting reasoning model parameters")
             parameters.pop("temperature")
             parameters.pop("seed")
-        output = ChatOpenAI(**parameters)
-        if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
-        elif self.json_mode:
-            output = output.bind(response_format={"type": "json_object"})
+        
+        llm_output = ChatOpenAI(**parameters)
 
-        return output
+        # Determine response_format binding
+        binding_args = None
+        if hasattr(self, "response_format"):
+            if self.response_format == "json_object":
+                binding_args = {"response_format": {"type": "json_object"}}
+            elif self.response_format == "json_schema":
+                if hasattr(self, "response_schema") and self.response_schema and self.response_schema != {}:
+                    binding_args = {"response_format": {"type": "json_schema", "json_schema": self.response_schema}}
+                else:
+                    # Fallback for json_schema mode if schema is missing/empty
+                    binding_args = {"response_format": {"type": "json_object"}}
+        
+        # Legacy json_mode, only if no explicit json_object/json_schema from response_format
+        if not binding_args and self.json_mode:
+            binding_args = {"response_format": {"type": "json_object"}}
+
+        if binding_args:
+            llm_output = llm_output.bind(**binding_args)
+
+        return llm_output
 
     def structured_output(self) -> Data:
         message = self.text_response()
@@ -196,15 +210,56 @@ class OpenAIModelComponent(LCModelComponent):
         return None
 
     def update_build_config(self, build_config: dict, field_value: Any, field_name: str | None = None) -> dict:
-        if field_name in {"base_url", "model_name", "api_key"} and field_value in OPENAI_REASONING_MODEL_NAMES:
-            build_config["temperature"]["show"] = False
-            build_config["seed"]["show"] = False
-        if field_name in {"base_url", "model_name", "api_key"} and field_value in OPENAI_MODEL_NAMES:
-            build_config["temperature"]["show"] = True
-            build_config["seed"]["show"] = True
-        if field_name == "response_schema":
-            show_outputs = bool(field_value)
-            for output in build_config.get("outputs", []):
-                if output["name"] in {"structured_output", "structured_output_dataframe"}:
-                    output["hidden"] = not show_outputs
+        # Preserve existing logic for temperature and seed based on model_name
+        if field_name == "model_name":
+            if field_value in OPENAI_REASONING_MODEL_NAMES:
+                build_config["temperature"]["show"] = False
+                build_config["seed"]["show"] = False
+            elif field_value in OPENAI_MODEL_NAMES:
+                build_config["temperature"]["show"] = True
+                build_config["seed"]["show"] = True
+        
+        current_response_format = build_config.get("response_format", {}).get("value", "text")
+
+        if field_name == "response_format":
+            current_response_format = field_value
+        
+        # Backwards compatibility for initial load
+        if field_name is None: # Initial build
+            if build_config.get("response_schema", {}).get("value") and build_config.get("response_schema", {}).get("value") != {}:
+                build_config["response_format"]["value"] = "json_schema"
+                current_response_format = "json_schema"
+            elif build_config.get("json_mode", {}).get("value") is True:
+                 build_config["response_format"]["value"] = "json_object"
+                 current_response_format = "json_object"
+
+        # Show/hide response_schema based on response_format
+        # response_schema is only relevant for "json_schema" mode
+        build_config["response_schema"]["show"] = (current_response_format == "json_schema")
+        
         return build_config
+
+    def update_outputs(self, frontend_node: dict, field_name: str, field_value: Any) -> dict:
+        current_response_format = frontend_node.get("template", {}).get("response_format", {}).get("value", "text")
+        if field_name == "response_format": # If response_format itself is changing
+            current_response_format = field_value
+        elif field_name is None: # Initial build, check for backward compatibility
+            if frontend_node.get("template", {}).get("response_schema", {}).get("value") and frontend_node.get("template", {}).get("response_schema", {}).get("value") != {}:
+                current_response_format = "json_schema"
+            elif frontend_node.get("template", {}).get("json_mode", {}).get("value") is True:
+                current_response_format = "json_object"
+
+
+        base_output_defs = [
+            Output(display_name="Message", name="text_output", method="text_response").model_dump(),
+            Output(display_name="Language Model", name="model_output", method="build_model").model_dump(),
+        ]
+
+        if current_response_format == "json_schema": # Only add structured outputs for json_schema mode
+            structured_output_def = Output(name="structured_output", display_name="Structured Output", method="structured_output").model_dump()
+            dataframe_output_def = Output(name="structured_output_dataframe", display_name="DataFrame", method="as_dataframe").model_dump()
+            frontend_node["outputs"] = base_output_defs + [structured_output_def, dataframe_output_def]
+        else: # "text" or "json_object" mode
+            frontend_node["outputs"] = base_output_defs
+            
+        return frontend_node

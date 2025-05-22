@@ -146,6 +146,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+package-lock.json
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -262,6 +263,7 @@ langflow.db
 /tmp/*
 src/backend/langflow/frontend/
 src/backend/base/langflow/frontend/
+src/backend/base/langflow/frontend
 .docker
 scratchpad*
 chroma*/*

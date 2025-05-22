@@ -141,6 +141,28 @@ class OpenRouterComponent(LCModelComponent):
             real_time_refresh=True,
             required=True,
         ),
+        DropdownInput(
+            name="response_format",
+            display_name="Response Format",
+            options=["text", "json_object", "json_schema"],
+            value="text",
+            info="Controls the output format. 'text' for standard output. 'json_object' for generic JSON. 'json_schema' to enforce a specific JSON schema (requires Response Schema input).",
+            real_time_refresh=True,
+            advanced=False,
+        ),
+        NestedDictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            info="JSON schema for structured outputs. Used only when Response Format is 'json_schema'.",
+            show=False, # Initially hidden, shown by update_build_config
+            input_types=["dict", "Data"],
+        ),
+        BoolInput(
+            name="schema_reorder_workaround",
+            display_name="Schema Reorder Workaround",
+            info="Rename schema properties to preserve ordering. Used when Response Format is 'json_schema' and a Response Schema is provided.",
+            show=False, # Initially hidden, shown by update_build_config
+        ),
         SliderInput(
             name="temperature",
             display_name="Temperature",
@@ -155,35 +177,10 @@ class OpenRouterComponent(LCModelComponent):
             info="Maximum number of tokens to generate",
             advanced=True,
         ),
-        NestedDictInput(
-            name="response_schema",
-            display_name="Response Schema",
-            advanced=True,
-            info="JSON schema for structured outputs.",
-        ),
-        BoolInput(
-            name="schema_reorder_workaround",
-            display_name="Schema Reorder Workaround",
-            info="Rename schema properties to preserve ordering",
-            advanced=True,
-        ),
     ]
 
-    outputs = [
-        *LCModelComponent.outputs,
-        Output(
-            name="structured_output",
-            display_name="Structured Output",
-            method="structured_output",
-            hidden=True,
-        ),
-        Output(
-            name="structured_output_dataframe",
-            display_name="DataFrame",
-            method="as_dataframe",
-            hidden=True,
-        ),
-    ]
+    # Outputs are now dynamically managed by update_outputs
+    # Base LCModelComponent.outputs are inherited.
 
     _schema_mapping: dict[str, str] | None = None
 
@@ -259,17 +256,29 @@ class OpenRouterComponent(LCModelComponent):
             self.log(error_msg)
             raise ValueError(error_msg) from err
 
-        if self.response_schema:
-            schema_to_use = self.response_schema
-            if getattr(self, "schema_reorder_workaround", False):
-                schema_to_use, mapping = _rename_schema_properties(self.response_schema)
-                self._schema_mapping = mapping
-            else:
-                self._schema_mapping = None
-            output = output.bind(response_format={"type": "json_schema", "json_schema": schema_to_use})
-        else:
-            self._schema_mapping = None
-        return output
+        llm_output = ChatOpenAI(**kwargs)
+
+        binding_args = None
+        self._schema_mapping = None # Reset schema mapping
+
+        if hasattr(self, "response_format"):
+            if self.response_format == "json_object":
+                binding_args = {"response_format": {"type": "json_object"}}
+            elif self.response_format == "json_schema":
+                if hasattr(self, "response_schema") and self.response_schema and self.response_schema != {}:
+                    schema_to_use = self.response_schema
+                    if getattr(self, "schema_reorder_workaround", False):
+                        schema_to_use, mapping = _rename_schema_properties(self.response_schema)
+                        self._schema_mapping = mapping
+                    binding_args = {"response_format": {"type": "json_schema", "json_schema": schema_to_use}}
+                else:
+                    # Fallback for json_schema mode if schema is missing/empty
+                    binding_args = {"response_format": {"type": "json_object"}}
+        
+        if binding_args:
+            llm_output = llm_output.bind(**binding_args)
+            
+        return llm_output
 
     def structured_output(self) -> Data:
         message = self.text_response()
@@ -315,40 +324,91 @@ class OpenRouterComponent(LCModelComponent):
             pass
         return None
 
-    def update_build_config(self, build_config: dict, field_value: str, field_name: str | None = None) -> dict:
+    def update_build_config(self, build_config: dict, field_value: Any, field_name: str | None = None) -> dict:
         """Update build configuration based on field updates."""
-        try:
-            if field_name is None or field_name == "provider":
+        # Provider and model_name logic
+        if field_name is None or field_name == "provider" or (field_name == "api_key" and field_value): # Also refresh on API key entry
+            try:
                 provider_models = self.fetch_models()
-                build_config["provider"]["options"] = sorted(provider_models.keys())
-                if build_config["provider"]["value"] not in provider_models:
-                    build_config["provider"]["value"] = build_config["provider"]["options"][0]
+                current_provider_value = build_config.get("provider", {}).get("value")
+                
+                build_config["provider"]["options"] = sorted(list(provider_models.keys()))
+                if not current_provider_value or current_provider_value not in provider_models:
+                     if build_config["provider"]["options"]:
+                        build_config["provider"]["value"] = build_config["provider"]["options"][0]
+                        current_provider_value = build_config["provider"]["options"][0]
+                     else: # No providers loaded
+                        build_config["provider"]["value"] = "Loading providers..."
+                        build_config["model_name"]["options"] = ["Select a provider first"]
+                        build_config["model_name"]["value"] = "Select a provider first"
 
-            if field_name == "provider" and field_value in self.fetch_models():
-                provider_models = self.fetch_models()
-                models = provider_models[field_value]
+                if field_name == "provider": # If provider changed, update model list
+                    current_provider_value = field_value
 
-                build_config["model_name"]["options"] = [model["id"] for model in models]
-                if models:
-                    build_config["model_name"]["value"] = models[0]["id"]
+                if current_provider_value and current_provider_value in provider_models:
+                    models = provider_models[current_provider_value]
+                    build_config["model_name"]["options"] = [model["id"] for model in models]
+                    if models:
+                        build_config["model_name"]["value"] = models[0]["id"]
+                    else:
+                        build_config["model_name"]["options"] = ["No models for this provider"]
+                        build_config["model_name"]["value"] = "No models for this provider"
+                    
+                    tooltips = {
+                        model["id"]: (f"{model['name']}\nContext Length: {model['context_length']}\n{model['description']}")
+                        for model in models
+                    }
+                    build_config["model_name"]["tooltips"] = tooltips
 
-                tooltips = {
-                    model["id"]: (f"{model['name']}\nContext Length: {model['context_length']}\n{model['description']}")
-                    for model in models
-                }
-                build_config["model_name"]["tooltips"] = tooltips
+            except httpx.HTTPError as e:
+                self.log(f"Error updating build config: {e!s}")
+                build_config["provider"]["options"] = ["Error loading providers"]
+                build_config["provider"]["value"] = "Error loading providers"
+                build_config["model_name"]["options"] = ["Error loading models"]
+                build_config["model_name"]["value"] = "Error loading models"
 
-        except httpx.HTTPError as e:
-            self.log(f"Error updating build config: {e!s}")
-            build_config["provider"]["options"] = ["Error loading providers"]
-            build_config["provider"]["value"] = "Error loading providers"
-            build_config["model_name"]["options"] = ["Error loading models"]
-            build_config["model_name"]["value"] = "Error loading models"
+        # Response Format logic
+        current_response_format = build_config.get("response_format", {}).get("value", "text")
 
-        if field_name == "response_schema":
-            show_outputs = bool(field_value)
-            for output in build_config.get("outputs", []):
-                if output["name"] in {"structured_output", "structured_output_dataframe"}:
-                    output["hidden"] = not show_outputs
+        if field_name == "response_format":
+            current_response_format = field_value
+        
+        # Backwards compatibility for initial load
+        if field_name is None: # Initial build
+            if build_config.get("response_schema", {}).get("value") and build_config.get("response_schema", {}).get("value") != {}:
+                build_config["response_format"]["value"] = "json_schema"
+                current_response_format = "json_schema"
+            # No equivalent of json_mode for OpenRouter to default to json_object
 
+        # Show/hide response_schema and schema_reorder_workaround
+        show_response_schema_input = (current_response_format == "json_schema")
+        build_config["response_schema"]["show"] = show_response_schema_input
+        
+        # schema_reorder_workaround is relevant if response_schema is shown (i.e., response_format is 'json_schema')
+        show_reorder_workaround = show_response_schema_input
+        build_config["schema_reorder_workaround"]["show"] = show_reorder_workaround
+        
         return build_config
+
+    def update_outputs(self, frontend_node: dict, field_name: str, field_value: Any) -> dict:
+        current_response_format = frontend_node.get("template", {}).get("response_format", {}).get("value", "text")
+        if field_name == "response_format": # If response_format itself is changing
+            current_response_format = field_value
+        elif field_name is None: # Initial build, check for backward compatibility
+            if frontend_node.get("template", {}).get("response_schema", {}).get("value") and frontend_node.get("template", {}).get("response_schema", {}).get("value") != {}:
+                current_response_format = "json_schema"
+            # No json_mode to check for OpenRouter
+
+        base_output_defs = [
+            Output(display_name="Message", name="text_output", method="text_response").model_dump(),
+            Output(display_name="Language Model", name="model_output", method="build_model").model_dump(),
+        ]
+
+        if current_response_format == "json_schema": # Only add structured outputs for json_schema mode
+            structured_output_def = Output(name="structured_output", display_name="Structured Output", method="structured_output").model_dump()
+            dataframe_output_def = Output(name="structured_output_dataframe", display_name="DataFrame", method="as_dataframe").model_dump()
+            frontend_node["outputs"] = base_output_defs + [structured_output_def, dataframe_output_def]
+        else: # "text" or "json_object" mode
+            frontend_node["outputs"] = base_output_defs
+            
+        return frontend_node
