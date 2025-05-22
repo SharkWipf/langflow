@@ -40,7 +40,9 @@ class TestOpenRouterComponent(ComponentTestBaseWithoutClient):
 
         model = component.build_model()
 
-        mock_instance.bind.assert_called_once_with(response_format={"type": "json_schema", **component.response_schema})
+        mock_instance.bind.assert_called_once_with(
+            response_format={"type": "json_schema", "json_schema": component.response_schema}
+        )
         assert model == mock_bound
 
     def test_update_build_config_outputs(self, component_class):

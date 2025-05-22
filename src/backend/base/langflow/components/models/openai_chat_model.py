@@ -152,7 +152,7 @@ class OpenAIModelComponent(LCModelComponent):
             parameters.pop("seed")
         output = ChatOpenAI(**parameters)
         if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
+            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
         elif self.json_mode:
             output = output.bind(response_format={"type": "json_object"})
 
