@@ -7,7 +7,6 @@ import {
 } from "@/types/api";
 import { RangeSpecType } from "@/types/components";
 import { ColumnField } from "@/types/utils/functions";
-import { targetHandleType } from "@/types/flow";
 
 // Base type for RefreshParameterComponent children
 export type BaseInputProps<valueType = any> = {
@@ -19,7 +18,6 @@ export type BaseInputProps<valueType = any> = {
   nodeClass?: APIClassType;
   helperText?: string;
   handleNodeClass?: (value: any, code?: string, type?: string) => void;
-  inputId?: targetHandleType;
   readonly?: boolean;
   placeholder?: string;
   isToolMode?: boolean;
