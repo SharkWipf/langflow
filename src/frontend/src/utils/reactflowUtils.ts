@@ -122,6 +122,9 @@ export function cleanEdges(nodes: AllNodeType[], edges: EdgeType[]) {
           id: targetNode.data.id,
           inputTypes: inputTypes,
         };
+        if (targetHandleObject.index !== undefined) {
+          ;(id as targetHandleType).index = targetHandleObject.index
+        }
         if (hasProxy) {
           id.proxy = targetNode.data.node!.template[field]?.proxy;
         }
