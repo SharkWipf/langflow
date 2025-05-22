@@ -1,4 +1,3 @@
-import json
 from collections import defaultdict
 from typing import Any
 
@@ -10,15 +9,12 @@ from langflow.base.models.model import LCModelComponent
 from langflow.field_typing import LanguageModel
 from langflow.field_typing.range_spec import RangeSpec
 from langflow.inputs import (
-    DictInput,
     DropdownInput,
     IntInput,
     SecretStrInput,
     SliderInput,
     StrInput,
 )
-from langflow.schema.data import Data
-from langflow.template.field.base import Output
 
 
 class OpenRouterComponent(LCModelComponent):
@@ -78,21 +74,6 @@ class OpenRouterComponent(LCModelComponent):
             display_name="Max Tokens",
             info="Maximum number of tokens to generate",
             advanced=True,
-        ),
-        DictInput(
-            name="response_schema",
-            display_name="Response Schema",
-            advanced=True,
-            info="JSON schema for structured outputs.",
-        ),
-    ]
-
-    outputs = [
-        *LCModelComponent.outputs,
-        Output(
-            name="structured_output",
-            display_name="Structured Output",
-            method="structured_output",
         ),
     ]
 
@@ -162,28 +143,11 @@ class OpenRouterComponent(LCModelComponent):
             kwargs["default_headers"] = headers
 
         try:
-            output = ChatOpenAI(**kwargs)
+            return ChatOpenAI(**kwargs)
         except (ValueError, httpx.HTTPError) as err:
             error_msg = f"Failed to build model: {err!s}"
             self.log(error_msg)
             raise ValueError(error_msg) from err
-
-        if self.response_schema:
-            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
-        return output
-
-    def structured_output(self) -> Data:
-        result = self.get_chat_result(
-            runnable=self.build_model(),
-            stream=self.stream,
-            input_value=self.input_value,
-            system_message=self.system_message,
-        )
-        try:
-            parsed = json.loads(result) if isinstance(result, str) else result
-        except (ValueError, TypeError):
-            parsed = result
-        return Data(text_key="results", data={"results": parsed})
 
     def _get_exception_message(self, e: Exception) -> str | None:
         """Get a message from an OpenRouter exception.
