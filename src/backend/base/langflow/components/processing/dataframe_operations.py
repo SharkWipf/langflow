@@ -258,8 +258,9 @@ class DataFrameOperationsComponent(Component):
         df_list = self.df if self._df_is_list() else [self.df]
         if len(df_list) < 2:
             return DataFrame(df_list[0]) if df_list else DataFrame()
-        appended = pd.concat(df_list, ignore_index=True)
-        return DataFrame(appended)
+        dataframes = [pd.DataFrame(df) for df in df_list]
+        appended = pd.concat(dataframes, ignore_index=True)
+        return DataFrame(appended.reset_index(drop=True))
 
     def merge_dataframes(self) -> DataFrame:
         if not self.merge_on:
@@ -268,7 +269,7 @@ class DataFrameOperationsComponent(Component):
         df_list = self.df if self._df_is_list() else [self.df]
         if len(df_list) < 2:
             return DataFrame(df_list[0]) if df_list else DataFrame()
-        merged = df_list[0]
+        merged = pd.DataFrame(df_list[0])
         for df in df_list[1:]:
-            merged = merged.merge(df, on=self.merge_on)
-        return DataFrame(merged)
+            merged = merged.merge(pd.DataFrame(df), on=self.merge_on)
+        return DataFrame(merged.reset_index(drop=True))

@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from langflow.components.processing.dataframe_operations import DataFrameOperationsComponent
+from langflow.schema import DataFrame
 
 
 @pytest.fixture
@@ -82,3 +83,26 @@ def test_invalid_operation():
     component.operation = "Invalid Operation"
     with pytest.raises(ValueError, match="Unsupported operation: Invalid Operation"):
         component.perform_operation()
+
+
+def test_append_operation():
+    df1 = pd.DataFrame({"A": [1], "B": [1]})
+    df2 = pd.DataFrame({"A": [2], "B": [2]})
+    component = DataFrameOperationsComponent()
+    component.df = [df1, df2]
+    component.operation = "Append"
+    result = component.perform_operation()
+    assert isinstance(result, DataFrame)
+    assert len(result) == 2
+
+
+def test_merge_operation():
+    df1 = pd.DataFrame({"id": [1], "A": [1]})
+    df2 = pd.DataFrame({"id": [1], "B": [2]})
+    component = DataFrameOperationsComponent()
+    component.df = [df1, df2]
+    component.operation = "Merge"
+    component.merge_on = "id"
+    result = component.perform_operation()
+    assert isinstance(result, DataFrame)
+    assert set(result.columns) == {"id", "A", "B"}
