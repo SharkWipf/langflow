@@ -7,6 +7,7 @@ import { TEXT_FIELD_TYPES } from "@/constants/constants";
 import CustomConnectionComponent from "@/customization/components/custom-connectionComponent";
 import CustomLinkComponent from "@/customization/components/custom-linkComponent";
 import { APIClassType, InputFieldType } from "@/types/api";
+import { targetHandleType } from "@/types/flow";
 import { useMemo } from "react";
 import ToolsComponent from "./components/ToolsComponent";
 import DictComponent from "./components/dictComponent";
@@ -30,6 +31,7 @@ export function ParameterRenderComponent({
   handleOnNewValue,
   name,
   nodeId,
+  inputId,
   templateData,
   templateValue,
   editNode,
@@ -45,6 +47,7 @@ export function ParameterRenderComponent({
     | ((value: string, key: string) => void);
   name: string;
   nodeId: string;
+  inputId?: targetHandleType;
   templateData: Partial<InputFieldType>;
   templateValue: any;
   editNode: boolean;
@@ -72,6 +75,7 @@ export function ParameterRenderComponent({
       nodeClass,
       handleNodeClass,
       nodeId,
+      inputId,
       helperText: templateData?.helper_text,
       readonly: templateData.readonly,
       placeholder,
