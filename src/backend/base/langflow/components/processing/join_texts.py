@@ -15,6 +15,7 @@ class JoinTextsComponent(Component):
             display_name="Texts",
             info="List of texts to concatenate.",
             is_list=True,
+            dynamic=True,
         ),
         MultilineInput(
             name="delimiter",
