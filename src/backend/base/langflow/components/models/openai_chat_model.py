@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from langchain_openai import ChatOpenAI
@@ -10,8 +11,18 @@ from langflow.base.models.openai_constants import (
 )
 from langflow.field_typing import LanguageModel
 from langflow.field_typing.range_spec import RangeSpec
-from langflow.inputs import BoolInput, DictInput, DropdownInput, IntInput, SecretStrInput, SliderInput, StrInput
+from langflow.inputs import (
+    BoolInput,
+    DictInput,
+    DropdownInput,
+    IntInput,
+    SecretStrInput,
+    SliderInput,
+    StrInput,
+)
 from langflow.logging import logger
+from langflow.schema.data import Data
+from langflow.template.field.base import Output
 
 
 class OpenAIModelComponent(LCModelComponent):
@@ -40,6 +51,12 @@ class OpenAIModelComponent(LCModelComponent):
             display_name="JSON Mode",
             advanced=True,
             info="If True, it will output JSON regardless of passing a schema.",
+        ),
+        DictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            advanced=True,
+            info="JSON schema for structured outputs.",
         ),
         DropdownInput(
             name="model_name",
@@ -96,6 +113,15 @@ class OpenAIModelComponent(LCModelComponent):
         ),
     ]
 
+    outputs = [
+        *LCModelComponent.outputs,
+        Output(
+            name="structured_output",
+            display_name="Structured Output",
+            method="structured_output",
+        ),
+    ]
+
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]
         parameters = {
             "api_key": SecretStr(self.api_key).get_secret_value() if self.api_key else None,
@@ -115,10 +141,25 @@ class OpenAIModelComponent(LCModelComponent):
             parameters.pop("temperature")
             parameters.pop("seed")
         output = ChatOpenAI(**parameters)
-        if self.json_mode:
+        if self.response_schema:
+            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
+        elif self.json_mode:
             output = output.bind(response_format={"type": "json_object"})
 
         return output
+
+    def structured_output(self) -> Data:
+        result = self.get_chat_result(
+            runnable=self.build_model(),
+            stream=self.stream,
+            input_value=self.input_value,
+            system_message=self.system_message,
+        )
+        try:
+            parsed = json.loads(result) if isinstance(result, str) else result
+        except (ValueError, TypeError):
+            parsed = result
+        return Data(text_key="results", data={"results": parsed})
 
     def _get_exception_message(self, e: Exception):
         """Get a message from an OpenAI exception.
