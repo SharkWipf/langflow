@@ -1,3 +1,5 @@
+import json
+from collections import OrderedDict
 from typing import Any
 
 from langchain_openai import ChatOpenAI
@@ -10,8 +12,20 @@ from langflow.base.models.openai_constants import (
 )
 from langflow.field_typing import LanguageModel
 from langflow.field_typing.range_spec import RangeSpec
-from langflow.inputs import BoolInput, DictInput, DropdownInput, IntInput, SecretStrInput, SliderInput, StrInput
+from langflow.inputs import (
+    BoolInput,
+    DictInput,
+    DropdownInput,
+    IntInput,
+    NestedDictInput,
+    SecretStrInput,
+    SliderInput,
+    StrInput,
+)
 from langflow.logging import logger
+from langflow.schema.data import Data
+from langflow.schema.dataframe import DataFrame
+from langflow.template.field.base import Output
 
 
 class OpenAIModelComponent(LCModelComponent):
@@ -40,6 +54,12 @@ class OpenAIModelComponent(LCModelComponent):
             display_name="JSON Mode",
             advanced=True,
             info="If True, it will output JSON regardless of passing a schema.",
+        ),
+        NestedDictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            advanced=True,
+            info="JSON schema for structured outputs.",
         ),
         DropdownInput(
             name="model_name",
@@ -96,6 +116,22 @@ class OpenAIModelComponent(LCModelComponent):
         ),
     ]
 
+    outputs = [
+        *LCModelComponent.outputs,
+        Output(
+            name="structured_output",
+            display_name="Structured Output",
+            method="structured_output",
+            hidden=True,
+        ),
+        Output(
+            name="structured_output_dataframe",
+            display_name="DataFrame",
+            method="as_dataframe",
+            hidden=True,
+        ),
+    ]
+
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]
         parameters = {
             "api_key": SecretStr(self.api_key).get_secret_value() if self.api_key else None,
@@ -115,10 +151,30 @@ class OpenAIModelComponent(LCModelComponent):
             parameters.pop("temperature")
             parameters.pop("seed")
         output = ChatOpenAI(**parameters)
-        if self.json_mode:
+        if self.response_schema:
+            output = output.bind(response_format={"type": "json_schema", **self.response_schema})
+        elif self.json_mode:
             output = output.bind(response_format={"type": "json_object"})
 
         return output
+
+    def structured_output(self) -> Data:
+        message = self.text_response()
+        content = getattr(message, "content", str(message))
+        try:
+            parsed = json.loads(content, object_pairs_hook=OrderedDict)
+        except (TypeError, ValueError) as err:
+            parsed = getattr(message, "parsed", None)
+            if parsed is None:
+                error_msg = "Unable to parse structured output"
+                raise ValueError(error_msg) from err
+        return Data(text_key="results", data={"results": parsed})
+
+    def as_dataframe(self) -> DataFrame:
+        data = self.structured_output().data.get("results")
+        if isinstance(data, list):
+            return DataFrame(data)
+        return DataFrame([data])
 
     def _get_exception_message(self, e: Exception):
         """Get a message from an OpenAI exception.
@@ -146,4 +202,9 @@ class OpenAIModelComponent(LCModelComponent):
         if field_name in {"base_url", "model_name", "api_key"} and field_value in OPENAI_MODEL_NAMES:
             build_config["temperature"]["show"] = True
             build_config["seed"]["show"] = True
+        if field_name == "response_schema":
+            show_outputs = bool(field_value)
+            for output in build_config.get("outputs", []):
+                if output["name"] in {"structured_output", "structured_output_dataframe"}:
+                    output["hidden"] = not show_outputs
         return build_config
