@@ -9,6 +9,7 @@ from langflow.base.models.model import LCModelComponent
 from langflow.field_typing import LanguageModel
 from langflow.field_typing.range_spec import RangeSpec
 from langflow.inputs import (
+    DictInput,
     DropdownInput,
     IntInput,
     SecretStrInput,
@@ -74,6 +75,12 @@ class OpenRouterComponent(LCModelComponent):
             display_name="Max Tokens",
             info="Maximum number of tokens to generate",
             advanced=True,
+        ),
+        DictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            advanced=True,
+            info="JSON schema for structured outputs.",
         ),
     ]
 
@@ -143,11 +150,15 @@ class OpenRouterComponent(LCModelComponent):
             kwargs["default_headers"] = headers
 
         try:
-            return ChatOpenAI(**kwargs)
+            output = ChatOpenAI(**kwargs)
         except (ValueError, httpx.HTTPError) as err:
             error_msg = f"Failed to build model: {err!s}"
             self.log(error_msg)
             raise ValueError(error_msg) from err
+
+        if self.response_schema:
+            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
+        return output
 
     def _get_exception_message(self, e: Exception) -> str | None:
         """Get a message from an OpenRouter exception.

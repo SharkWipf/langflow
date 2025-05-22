@@ -41,6 +41,12 @@ class OpenAIModelComponent(LCModelComponent):
             advanced=True,
             info="If True, it will output JSON regardless of passing a schema.",
         ),
+        DictInput(
+            name="response_schema",
+            display_name="Response Schema",
+            advanced=True,
+            info="JSON schema for structured outputs.",
+        ),
         DropdownInput(
             name="model_name",
             display_name="Model Name",
@@ -115,7 +121,9 @@ class OpenAIModelComponent(LCModelComponent):
             parameters.pop("temperature")
             parameters.pop("seed")
         output = ChatOpenAI(**parameters)
-        if self.json_mode:
+        if self.response_schema:
+            output = output.bind(response_format={"type": "json_schema", "json_schema": self.response_schema})
+        elif self.json_mode:
             output = output.bind(response_format={"type": "json_object"})
 
         return output
