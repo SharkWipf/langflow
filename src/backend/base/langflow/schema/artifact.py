@@ -68,9 +68,7 @@ def post_process_raw(raw, artifact_type: str):
     if artifact_type == ArtifactType.STREAM.value:
         raw = ""
     elif artifact_type == ArtifactType.ARRAY.value:
-        # Keep DataFrame objects intact for proper frontend rendering
-        # Convert lists of objects to a serializable format otherwise
-        raw = raw if isinstance(raw, DataFrame) else _to_list_of_dicts(raw)
+        raw = raw.to_dict(orient="records") if isinstance(raw, DataFrame) else _to_list_of_dicts(raw)
     elif artifact_type == ArtifactType.UNKNOWN.value and raw is not None:
         if isinstance(raw, BaseModel | dict):
             try:

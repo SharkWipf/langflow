@@ -36,7 +36,7 @@ class ErrorLog(TypedDict):
 
 
 class OutputValue(BaseModel):
-    message: ErrorLog | StreamURL | dict | list | str | DataFrame
+    message: ErrorLog | StreamURL | dict | list | str
     type: str
 
 
@@ -108,9 +108,9 @@ def build_output_logs(vertex, result) -> dict:
                 message = ""
 
             case LogType.ARRAY:
-                # Keep DataFrame objects untouched for proper table display
-                if not isinstance(message, DataFrame):
-                    message = [serialize(item) for item in message]
+                if isinstance(message, DataFrame):
+                    message = message.to_dict(orient="records")
+                message = [serialize(item) for item in message]
         name = output.get("name", f"output_{index}")
         outputs |= {name: OutputValue(message=message, type=type_).model_dump()}
 
