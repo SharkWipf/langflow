@@ -5,7 +5,7 @@ from langflow.custom import Component
 from langflow.inputs import DictInput, DropdownInput, MessageTextInput, SortableListInput
 from langflow.io import DataInput, Output
 from langflow.logging import logger
-from langflow.schema import Data
+from langflow.schema import Data, DataFrame
 from langflow.schema.dotdict import dotdict
 from langflow.utils.component_utils import set_current_fields, set_field_display
 
@@ -366,14 +366,14 @@ class DataOperationsComponent(Component):
 
         return Data(**data_filtered)
 
-    def join_data(self) -> Data:
-        """Join multiple Data objects into one."""
-        if not self.data_is_list():
-            return self.data[0] if self.data else Data(data={})
-        result = self.data[0]
-        for other in self.data[1:]:
-            result = result + other
-        return result
+    def join_data(self) -> DataFrame:
+        """Append Data objects into a single DataFrame."""
+        data_list = self.data if isinstance(self.data, list) else [self.data]
+        if not data_list:
+            return DataFrame()
+
+        rows = [d.model_dump().get("data", d.model_dump()) for d in data_list]
+        return DataFrame(rows)
 
     # Configuration and execution methods
     def update_build_config(self, build_config: dotdict, field_value: Any, field_name: str | None = None) -> dotdict:
@@ -413,7 +413,7 @@ class DataOperationsComponent(Component):
 
         return build_config
 
-    def as_data(self) -> Data:
+    def as_data(self) -> Data | DataFrame:
         """Execute the selected action on the data."""
         if not hasattr(self, "operations") or not self.operations:
             return Data(data={})
@@ -428,7 +428,7 @@ class DataOperationsComponent(Component):
         action = selected_actions[0]
 
         # Explicitly type the action_map
-        action_map: dict[str, Callable[[], Data]] = {
+        action_map: dict[str, Callable[[], Data | DataFrame]] = {
             "Select Keys": self.select_keys,
             "Literal Eval": self.evaluate_data,
             "Combine": self.combine_data,
@@ -439,7 +439,7 @@ class DataOperationsComponent(Component):
             "Join Data": self.join_data,
         }
 
-        handler: Callable[[], Data] | None = action_map.get(action)
+        handler: Callable[[], Data | DataFrame] | None = action_map.get(action)
         if handler:
             try:
                 return handler()
