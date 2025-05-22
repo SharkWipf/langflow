@@ -111,4 +111,5 @@ export type targetHandleType = {
   name?: string;
   id: string;
   proxy?: { field: string; id: string };
+  index?: number;
 };
