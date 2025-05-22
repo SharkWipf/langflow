@@ -1,5 +1,6 @@
 from .alter_metadata import AlterMetadataComponent
 from .combine_text import CombineTextComponent
+from .join_texts import JoinTextsComponent
 from .create_data import CreateDataComponent
 from .data_operations import DataOperationsComponent
 from .directory_tree import DirectoryTreeComponent
@@ -38,6 +39,7 @@ __all__ = [
     "ParseJSONDataComponent",
     "ParserComponent",
     "RegexExtractorComponent",
+    "JoinTextsComponent",
     "SelectDataComponent",
     "SplitTextComponent",
     "UpdateDataComponent",
