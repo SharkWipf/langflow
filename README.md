@@ -1,5 +1,16 @@
 <!-- markdownlint-disable MD030 -->
 
+
+# !!!! WARNING !!!!
+# This is a scrap fork, not the original project, and is optimized for my own use only. Expect everything to be broken and/or out of date.
+# You should use the original project at https://github.com/langflow-ai/langflow instead, not this fork.
+# Aside from the original code, the only contributor to this branch is and will remain just me, and this fork has nothing to do with the original project beyond that.
+# !!!! WARNING !!!!
+
+
+
+
+
 ![Langflow logo](./docs/static/img/langflow-logo-color-black-solid.svg)
 
 
@@ -12,6 +23,12 @@
 [![YouTube Channel](https://img.shields.io/youtube/channel/subscribers/UCn2bInQrjdDYKEEmbpwblLQ?label=Subscribe)](https://www.youtube.com/@Langflow)
 [![Discord Server](https://img.shields.io/discord/1116803230643527710?logo=discord&style=social&label=Join)](https://discord.gg/EqksyE2EX9)
 
+
+# !!!! WARNING !!!!
+# This is a scrap fork, not the original project, and is optimized for my own use only. Expect everything to be broken and/or out of date.
+# You should use the original project at https://github.com/langflow-ai/langflow instead, not this fork.
+# Aside from the original code, the only contributor to this branch is and will remain just me, and this fork has nothing to do with the original project beyond that.
+# !!!! WARNING !!!!
 
 [Langflow](https://langflow.org) is a powerful tool for building and deploying AI-powered agents and workflows. It provides developers with both a visual authoring experience and a built-in API server that turns every agent into an API endpoint that can be integrated into applications built on any framework or stack. Langflow comes with batteries included and supports all major LLMs, vector databases and a growing library of AI tools.
 
@@ -64,6 +81,12 @@ We welcome contributions from developers of all levels. If you'd like to contrib
 ---
 
 [![Star History Chart](https://api.star-history.com/svg?repos=langflow-ai/langflow&type=Timeline)](https://star-history.com/#langflow-ai/langflow&Date)
+
+# !!!! WARNING !!!!
+# This is a scrap fork, not the original project, and is optimized for my own use only. Expect everything to be broken and/or out of date.
+# You should use the original project at https://github.com/langflow-ai/langflow instead, not this fork.
+# Aside from the original code, the only contributor to this branch is and will remain just me, and this fork has nothing to do with the original project beyond that.
+# !!!! WARNING !!!!
 
 ## ❤️ Contributors
 
