@@ -1,6 +1,6 @@
 import json
 from collections import OrderedDict, defaultdict
-from typing import Any
+from typing import Any, Dict
 
 import httpx
 from langchain_openai import ChatOpenAI
@@ -21,6 +21,10 @@ from langflow.inputs import (
 from langflow.schema.data import Data
 from langflow.schema.dataframe import DataFrame
 from langflow.template.field.base import Output
+
+from langchain_core.output_parsers import BaseOutputParser
+from pydantic import Field, ConfigDict
+
 
 _PROPERTY_THRESHOLD_1 = 10
 _PROPERTY_THRESHOLD_2 = 100
@@ -62,6 +66,7 @@ def _rename_schema_properties(schema: Any):
         if isinstance(obj, dict):
             props = obj.get("properties")
             if isinstance(props, dict):
+                from collections import OrderedDict
                 new_props = OrderedDict()
                 local_old_to_new = {}
                 for old_key, val in props.items():
@@ -85,6 +90,7 @@ def _rename_schema_properties(schema: Any):
 
 
 def _revert_json_keys(data: Any, mapping_new_to_old: dict[str, str]):
+    """Recursively revert enumerated keys back to their original names."""
     if isinstance(data, dict):
         reverted = OrderedDict()
         for k, v in data.items():
@@ -95,6 +101,29 @@ def _revert_json_keys(data: Any, mapping_new_to_old: dict[str, str]):
     return data
 
 
+class _RevertKeysParser(BaseOutputParser):
+    """
+    Parser that tries to interpret the LLM's output as JSON and revert
+    enumerated keys. If parsing fails, it returns the text unchanged.
+    """
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+
+    # We define our custom field below, recognized by Pydantic:
+    mapping_new_to_old: Dict[str, str] = Field(default_factory=dict)
+
+    def parse(self, text: str) -> str:
+        try:
+            data = json.loads(text, object_pairs_hook=OrderedDict)
+        except (json.JSONDecodeError, TypeError):
+            return text  # Not valid JSON, leave as-is
+
+        # If parsed as JSON, revert enumerated keys
+        data = _revert_json_keys(data, self.mapping_new_to_old)
+        return json.dumps(data)
+# -----------------------------------------------------------------------------
+
+
 class OpenRouterComponent(LCModelComponent):
     """OpenRouter API component for language models."""
 
@@ -103,8 +132,6 @@ class OpenRouterComponent(LCModelComponent):
         "OpenRouter provides unified access to multiple AI models from different providers through a single API."
     )
     icon = "OpenRouter"
-
-    schema_reorder_workaround: bool = False
 
     inputs = [
         *LCModelComponent._base_inputs,
@@ -178,9 +205,6 @@ class OpenRouterComponent(LCModelComponent):
             advanced=True,
         ),
     ]
-
-    # Outputs are now dynamically managed by update_outputs
-    # Base LCModelComponent.outputs are inherited.
 
     _schema_mapping: dict[str, str] | None = None
 
@@ -261,6 +285,7 @@ class OpenRouterComponent(LCModelComponent):
         binding_args = None
         self._schema_mapping = None # Reset schema mapping
 
+        # Decide on response format
         if hasattr(self, "response_format"):
             if self.response_format == "json_object":
                 binding_args = {"response_format": {"type": "json_object"}}
@@ -274,28 +299,47 @@ class OpenRouterComponent(LCModelComponent):
                 else:
                     # Fallback for json_schema mode if schema is missing/empty
                     binding_args = {"response_format": {"type": "json_object"}}
-        
+
         if binding_args:
             llm_output = llm_output.bind(**binding_args)
-            
+
+        if self.response_format == "json_schema" and self._schema_mapping:
+            self.output_parser = _RevertKeysParser(mapping_new_to_old=self._schema_mapping)
+        else:
+            self.output_parser = None
+
         return llm_output
 
     def structured_output(self) -> Data:
+        # text_response() calls parent code that runs the model and uses self.output_parser if set
         message = self.text_response()
-        content = getattr(message, "content", str(message))
+
+        raw_content_string: str | None = None
+        if isinstance(message, str):
+            raw_content_string = message
+        elif hasattr(message, "content") and isinstance(getattr(message, "content"), str):
+            raw_content_string = getattr(message, "content")
+        elif hasattr(message, "text") and isinstance(getattr(message, "text"), str):
+            raw_content_string = getattr(message, "text")
+
+        if raw_content_string is None:
+            self.log(
+                f"Warning: text_response() returned type {type(message)}, "
+                "attempting str() conversion for content."
+            )
+            raw_content_string = str(message)
+
         try:
-            parsed = json.loads(content, object_pairs_hook=OrderedDict)
+            parsed = json.loads(raw_content_string, object_pairs_hook=OrderedDict)
         except (TypeError, ValueError) as err:
             parsed = getattr(message, "parsed", None)
             if parsed is None:
-                error_msg = "Unable to parse structured output"
+                content_preview = str(raw_content_string)[:200] + "..." if raw_content_string else "None"
+                error_msg = f"Unable to parse structured output. Content preview: '{content_preview}'"
                 raise ValueError(error_msg) from err
-        if (
-            parsed is not None
-            and getattr(self, "schema_reorder_workaround", False)
-            and getattr(self, "_schema_mapping", None)
-        ):
-            parsed = _revert_json_keys(parsed, self._schema_mapping)
+
+        # The enumerated keys have already been reverted by the parser, so we skip extra logic here.
+
         return Data(text_key="results", data={"results": parsed})
 
     def as_dataframe(self) -> DataFrame:
@@ -305,14 +349,7 @@ class OpenRouterComponent(LCModelComponent):
         return DataFrame([data])
 
     def _get_exception_message(self, e: Exception) -> str | None:
-        """Get a message from an OpenRouter exception.
-
-        Args:
-            e (Exception): The exception to get the message from.
-
-        Returns:
-            str | None: The message from the exception, or None if no specific message can be extracted.
-        """
+        """Get a message from an OpenRouter exception."""
         try:
             from openai import BadRequestError
 
@@ -326,23 +363,22 @@ class OpenRouterComponent(LCModelComponent):
 
     def update_build_config(self, build_config: dict, field_value: Any, field_name: str | None = None) -> dict:
         """Update build configuration based on field updates."""
-        # Provider and model_name logic
-        if field_name is None or field_name == "provider" or (field_name == "api_key" and field_value): # Also refresh on API key entry
+        if field_name is None or field_name == "provider" or (field_name == "api_key" and field_value):
             try:
                 provider_models = self.fetch_models()
                 current_provider_value = build_config.get("provider", {}).get("value")
-                
+
                 build_config["provider"]["options"] = sorted(list(provider_models.keys()))
                 if not current_provider_value or current_provider_value not in provider_models:
-                     if build_config["provider"]["options"]:
+                    if build_config["provider"]["options"]:
                         build_config["provider"]["value"] = build_config["provider"]["options"][0]
                         current_provider_value = build_config["provider"]["options"][0]
-                     else: # No providers loaded
+                    else:
                         build_config["provider"]["value"] = "Loading providers..."
                         build_config["model_name"]["options"] = ["Select a provider first"]
                         build_config["model_name"]["value"] = "Select a provider first"
 
-                if field_name == "provider": # If provider changed, update model list
+                if field_name == "provider":
                     current_provider_value = field_value
 
                 if current_provider_value and current_provider_value in provider_models:
@@ -353,9 +389,11 @@ class OpenRouterComponent(LCModelComponent):
                     else:
                         build_config["model_name"]["options"] = ["No models for this provider"]
                         build_config["model_name"]["value"] = "No models for this provider"
-                    
+
                     tooltips = {
-                        model["id"]: (f"{model['name']}\nContext Length: {model['context_length']}\n{model['description']}")
+                        model["id"]: (
+                            f"{model['name']}\nContext Length: {model['context_length']}\n{model['description']}"
+                        )
                         for model in models
                     }
                     build_config["model_name"]["tooltips"] = tooltips
@@ -367,48 +405,50 @@ class OpenRouterComponent(LCModelComponent):
                 build_config["model_name"]["options"] = ["Error loading models"]
                 build_config["model_name"]["value"] = "Error loading models"
 
-        # Response Format logic
         current_response_format = build_config.get("response_format", {}).get("value", "text")
 
         if field_name == "response_format":
             current_response_format = field_value
-        
+
         # Backwards compatibility for initial load
-        if field_name is None: # Initial build
+        if field_name is None:  # Initial build
             if build_config.get("response_schema", {}).get("value") and build_config.get("response_schema", {}).get("value") != {}:
                 build_config["response_format"]["value"] = "json_schema"
                 current_response_format = "json_schema"
-            # No equivalent of json_mode for OpenRouter to default to json_object
 
-        # Show/hide response_schema and schema_reorder_workaround
         show_response_schema_input = (current_response_format == "json_schema")
         build_config["response_schema"]["show"] = show_response_schema_input
-        
-        # schema_reorder_workaround is relevant if response_schema is shown (i.e., response_format is 'json_schema')
         show_reorder_workaround = show_response_schema_input
         build_config["schema_reorder_workaround"]["show"] = show_reorder_workaround
-        
+
         return build_config
 
     def update_outputs(self, frontend_node: dict, field_name: str, field_value: Any) -> dict:
         current_response_format = frontend_node.get("template", {}).get("response_format", {}).get("value", "text")
-        if field_name == "response_format": # If response_format itself is changing
+        if field_name == "response_format":
             current_response_format = field_value
-        elif field_name is None: # Initial build, check for backward compatibility
-            if frontend_node.get("template", {}).get("response_schema", {}).get("value") and frontend_node.get("template", {}).get("response_schema", {}).get("value") != {}:
+        elif field_name is None:
+            if frontend_node.get("template", {}).get("response_schema", {}).get("value") and frontend_node.get("template", {}).get("value") != {}:
                 current_response_format = "json_schema"
-            # No json_mode to check for OpenRouter
 
         base_output_defs = [
             Output(display_name="Message", name="text_output", method="text_response").model_dump(),
             Output(display_name="Language Model", name="model_output", method="build_model").model_dump(),
         ]
 
-        if current_response_format == "json_schema": # Only add structured outputs for json_schema mode
-            structured_output_def = Output(name="structured_output", display_name="Structured Output", method="structured_output").model_dump()
-            dataframe_output_def = Output(name="structured_output_dataframe", display_name="DataFrame", method="as_dataframe").model_dump()
+        if current_response_format == "json_schema":
+            structured_output_def = Output(
+                name="structured_output",
+                display_name="Structured Output",
+                method="structured_output"
+            ).model_dump()
+            dataframe_output_def = Output(
+                name="structured_output_dataframe",
+                display_name="DataFrame",
+                method="as_dataframe"
+            ).model_dump()
             frontend_node["outputs"] = base_output_defs + [structured_output_def, dataframe_output_def]
-        else: # "text" or "json_object" mode
+        else:
             frontend_node["outputs"] = base_output_defs
-            
+
         return frontend_node
