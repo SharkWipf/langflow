@@ -190,6 +190,13 @@ class OpenRouterComponent(LCModelComponent):
             info="Rename schema properties to preserve ordering. Used when Response Format is 'json_schema' and a Response Schema is provided.",
             show=False, # Initially hidden, shown by update_build_config
         ),
+        BoolInput(
+            name="require_parameters",
+            display_name="Require All Parameters",
+            info="Only use providers that support all parameters in your request.",
+            advanced=True,
+            value=False,
+        ),
         SliderInput(
             name="temperature",
             display_name="Temperature",
@@ -272,6 +279,13 @@ class OpenRouterComponent(LCModelComponent):
 
         if headers:
             kwargs["default_headers"] = headers
+
+        # --- Inject provider.require_parameters if advanced toggle is enabled ---
+        model_kwargs = {}
+        if getattr(self, "require_parameters", False):
+            model_kwargs["provider"] = {"require_parameters": True}
+        if model_kwargs:
+            kwargs["model_kwargs"] = model_kwargs
 
         try:
             output = ChatOpenAI(**kwargs)
@@ -431,10 +445,8 @@ class OpenRouterComponent(LCModelComponent):
             if frontend_node.get("template", {}).get("response_schema", {}).get("value") and frontend_node.get("template", {}).get("value") != {}:
                 current_response_format = "json_schema"
 
-        base_output_defs = [
-            Output(display_name="Message", name="text_output", method="text_response").model_dump(),
-            Output(display_name="Language Model", name="model_output", method="build_model").model_dump(),
-        ]
+        # Always include all outputs from the class definition (including base class outputs)
+        base_output_defs = [output.model_dump() for output in self.outputs]
 
         if current_response_format == "json_schema":
             structured_output_def = Output(

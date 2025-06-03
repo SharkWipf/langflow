@@ -2,6 +2,8 @@ import importlib
 import json
 import warnings
 from abc import abstractmethod
+from functools import partial
+import traceback
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.language_models.llms import LLM
@@ -21,6 +23,50 @@ from langflow.template.field.base import Output
 # Models are trained with this exact string. Do not update.
 DETAILED_THINKING_PREFIX = "detailed thinking on\n\n"
 
+
+def patch_get_request_payload(obj, payload_callback, seen=None):
+    """
+    Recursively patch the _get_request_payload method of the model to capture the actual API payload.
+    """
+    if seen is None:
+        seen = set()
+    if id(obj) in seen:
+        return obj
+    seen.add(id(obj))
+
+    # Patch _get_request_payload if present
+    if hasattr(obj, "_get_request_payload") and callable(getattr(obj, "_get_request_payload")):
+        orig_get_request_payload = getattr(obj, "_get_request_payload")
+        if not getattr(orig_get_request_payload, "_is_patched_for_payload", False):
+            def get_request_payload_wrapper(*args, **kwargs):
+                payload = orig_get_request_payload(*args, **kwargs)
+                payload_callback(payload)
+                return payload
+            get_request_payload_wrapper._is_patched_for_payload = True
+            try:
+                setattr(obj, "_get_request_payload", get_request_payload_wrapper)
+            except Exception:
+                pass
+
+    # Recursively patch .bound, .model, .llm, .runnables, etc.
+    for subattr in ["bound", "model", "llm"]:
+        if hasattr(obj, subattr):
+            sub = getattr(obj, subattr)
+            if sub is not obj:
+                patch_get_request_payload(sub, payload_callback, seen)
+    for subattr in ["runnables", "steps", "sequence", "mapping"]:
+        if hasattr(obj, subattr):
+            sub = getattr(obj, subattr)
+            if isinstance(sub, (list, tuple, dict)):
+                if isinstance(sub, dict):
+                    for item in sub.values():
+                        patch_get_request_payload(item, payload_callback, seen)
+                else:
+                    for item in sub:
+                        patch_get_request_payload(item, payload_callback, seen)
+    if hasattr(obj, "__wrapped__"):
+        patch_get_request_payload(getattr(obj, "__wrapped__"), payload_callback, seen)
+    return obj
 
 class LCModelComponent(Component):
     display_name: str = "Model Name"
@@ -44,7 +90,21 @@ class LCModelComponent(Component):
     outputs = [
         Output(display_name="Message", name="text_output", method="text_response"),
         Output(display_name="Language Model", name="model_output", method="build_model"),
+        Output(
+            display_name="Raw API Response",
+            name="raw_response",
+            method="raw_response",
+            info="The unprocessed/raw response object returned by the API provider."
+        ),
     ]
+    outputs.append(
+        Output(
+            display_name="Raw API Call",
+            name="raw_api_call",
+            method="raw_api_call",
+            info="The raw payload or parameters sent to the API provider for the last call."
+        )
+    )
 
     def _get_exception_message(self, e: Exception):
         return str(e)
@@ -212,6 +272,16 @@ class LCModelComponent(Component):
         if system_message and not system_message_added:
             messages.insert(0, SystemMessage(content=system_message))
         inputs: list | dict = messages or {}
+
+        # Store the raw API call payload/parameters (fallback if payload not captured)
+        self._last_raw_api_call = inputs
+
+        # Patch the model's _get_request_payload to capture the actual API payload
+        def _set_last_raw_api_payload(payload):
+            self._last_raw_api_payload = payload
+
+        patch_get_request_payload(runnable, _set_last_raw_api_payload)
+
         try:
             # TODO: Depreciated Feature to be removed in upcoming release
             if hasattr(self, "output_parser") and self.output_parser is not None:
@@ -225,8 +295,12 @@ class LCModelComponent(Component):
                 }
             )
             if stream:
-                return runnable.stream(inputs)
+                # For streaming, raw response is the generator/iterator itself
+                self._last_raw_response = runnable.stream(inputs)
+                return self._last_raw_response
             message = runnable.invoke(inputs)
+            # Store the raw message object for output
+            self._last_raw_response = message
             result = message.content if hasattr(message, "content") else message
             if isinstance(message, AIMessage):
                 status_message = self.build_status_message(message)
@@ -242,6 +316,21 @@ class LCModelComponent(Component):
             raise
 
         return result
+
+    def raw_response(self) -> object:
+        """
+        Returns the raw API response object from the last API call.
+        """
+        return getattr(self, "_last_raw_response", None)
+
+    def raw_api_call(self) -> object:
+        """
+        Returns the raw API call payload/parameters from the last API call.
+        If available, returns the actual API payload sent to the provider.
+        """
+        if hasattr(self, "_last_raw_api_payload"):
+            return self._last_raw_api_payload
+        return getattr(self, "_last_raw_api_call", None)
 
     @abstractmethod
     def build_model(self) -> LanguageModel:  # type: ignore[type-var]

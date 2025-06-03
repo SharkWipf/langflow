@@ -250,10 +250,8 @@ class OpenAIModelComponent(LCModelComponent):
                 current_response_format = "json_object"
 
 
-        base_output_defs = [
-            Output(display_name="Message", name="text_output", method="text_response").model_dump(),
-            Output(display_name="Language Model", name="model_output", method="build_model").model_dump(),
-        ]
+        # Always include all outputs from the class definition (including base class outputs)
+        base_output_defs = [output.model_dump() for output in self.outputs]
 
         if current_response_format == "json_schema": # Only add structured outputs for json_schema mode
             structured_output_def = Output(name="structured_output", display_name="Structured Output", method="structured_output").model_dump()

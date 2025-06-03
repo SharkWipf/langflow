@@ -375,6 +375,34 @@
                   "LanguageModel"
                 ],
                 "value": "__UNDEFINED__"
+              },
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Raw API Response",
+                "method": "raw_response",
+                "name": "raw_response",
+                "required_inputs": [],
+                "selected": "object",
+                "tool_mode": true,
+                "types": [
+                  "object"
+                ],
+                "value": "__UNDEFINED__"
+              },
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Raw API Call",
+                "method": "raw_api_call",
+                "name": "raw_api_call",
+                "required_inputs": [],
+                "selected": "object",
+                "tool_mode": true,
+                "types": [
+                  "object"
+                ],
+                "value": "__UNDEFINED__"
               }
             ],
             "pinned": false,
@@ -705,6 +733,34 @@
                 "tool_mode": true,
                 "types": [
                   "LanguageModel"
+                ],
+                "value": "__UNDEFINED__"
+              },
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Raw API Response",
+                "method": "raw_response",
+                "name": "raw_response",
+                "required_inputs": [],
+                "selected": "object",
+                "tool_mode": true,
+                "types": [
+                  "object"
+                ],
+                "value": "__UNDEFINED__"
+              },
+              {
+                "allows_loop": false,
+                "cache": true,
+                "display_name": "Raw API Call",
+                "method": "raw_api_call",
+                "name": "raw_api_call",
+                "required_inputs": [],
+                "selected": "object",
+                "tool_mode": true,
+                "types": [
+                  "object"
                 ],
                 "value": "__UNDEFINED__"
               }
