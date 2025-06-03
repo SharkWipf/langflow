@@ -236,6 +236,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -352,6 +353,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text_output",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -366,6 +368,7 @@
                 "display_name": "Language Model",
                 "method": "build_model",
                 "name": "model_output",
+                "process_on_error": false,
                 "required_inputs": [
                   "api_key"
                 ],
@@ -382,6 +385,7 @@
                 "display_name": "Raw API Response",
                 "method": "raw_response",
                 "name": "raw_response",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -396,6 +400,7 @@
                 "display_name": "Raw API Call",
                 "method": "raw_api_call",
                 "name": "raw_api_call",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -712,6 +717,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text_output",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -726,6 +732,7 @@
                 "display_name": "Language Model",
                 "method": "build_model",
                 "name": "model_output",
+                "process_on_error": false,
                 "required_inputs": [
                   "api_key"
                 ],
@@ -742,6 +749,7 @@
                 "display_name": "Raw API Response",
                 "method": "raw_response",
                 "name": "raw_response",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -756,6 +764,7 @@
                 "display_name": "Raw API Call",
                 "method": "raw_api_call",
                 "name": "raw_api_call",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -1070,6 +1079,7 @@
                 "display_name": "Message",
                 "method": "message_response",
                 "name": "message",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -1521,6 +1531,7 @@
                 "display_name": "Structured Output",
                 "method": "build_structured_output",
                 "name": "structured_output",
+                "process_on_error": false,
                 "selected": "Data",
                 "tool_mode": true,
                 "types": [
@@ -1534,6 +1545,7 @@
                 "display_name": "DataFrame",
                 "method": "as_dataframe",
                 "name": "structured_output_dataframe",
+                "process_on_error": false,
                 "selected": "DataFrame",
                 "tool_mode": true,
                 "types": [
@@ -1890,6 +1902,7 @@
                 "display_name": "Data",
                 "method": "load_files",
                 "name": "data",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Data",
                 "tool_mode": true,
@@ -1904,6 +1917,7 @@
                 "display_name": "DataFrame",
                 "method": "load_dataframe",
                 "name": "dataframe",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "DataFrame",
                 "tool_mode": true,
@@ -1918,6 +1932,7 @@
                 "display_name": "Message",
                 "method": "load_message",
                 "name": "message",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -2195,6 +2210,7 @@
                 "display_name": "Parsed Text",
                 "method": "parse_combined_text",
                 "name": "parsed_text",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [

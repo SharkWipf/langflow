@@ -40,6 +40,7 @@ from langflow.utils.util import find_closest_match
 
 from .custom_component import CustomComponent
 
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -950,12 +951,46 @@ class Component(CustomComponent):
         self._pre_run_setup_if_needed()
         self._handle_tool_mode()
 
-        for output in self._get_outputs_to_process():
+        error = None
+
+        outputs = list(self._get_outputs_to_process())
+        error_index = None
+
+        # First pass: process outputs in order, stop at first error
+        for idx, output in enumerate(outputs):
             self._current_output = output.name
-            result = await self._get_output_result(output)
-            results[output.name] = result
-            artifacts[output.name] = self._build_artifact(result)
-            self._log_output(output)
+            try:
+                if error is not None:
+                    continue  # Do not process any outputs after the first error
+                result = await self._get_output_result(output)
+                results[output.name] = result
+                artifacts[output.name] = self._build_artifact(result)
+                self._log_output(output)
+            except Exception as e:
+                error = e
+                error_index = idx
+                break  # Stop processing further outputs
+
+        # If error occurred, process only process_on_error outputs (skip all others, including Message)
+        if error is not None:
+            for output in outputs:
+                if getattr(output, "process_on_error", False):
+                    # Only process if not already processed (i.e., if error happened before this output)
+                    if error_index is not None and outputs.index(output) <= error_index:
+                        continue
+                    self._current_output = output.name
+                    try:
+                        result = await self._get_output_result(output)
+                        results[output.name] = result
+                        artifacts[output.name] = self._build_artifact(result)
+                        self._log_output(output)
+                    except Exception as e:
+                        # Swallow errors for process_on_error outputs to avoid masking the original error
+                        results[output.name] = None
+                        artifacts[output.name] = None
+
+            self._finalize_results(results, artifacts)
+            raise error
 
         self._finalize_results(results, artifacts)
         return results, artifacts
@@ -992,6 +1027,8 @@ class Component(CustomComponent):
         except TypeError as e:
             msg = f'Error running method "{output.method}": {e}'
             raise TypeError(msg) from e
+        except Exception as e:
+            raise
 
         if (
             self._vertex is not None

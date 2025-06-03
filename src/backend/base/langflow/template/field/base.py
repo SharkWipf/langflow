@@ -214,6 +214,9 @@ class Output(BaseModel):
     tool_mode: bool = Field(default=True)
     """Specifies if the output should be used as a tool"""
 
+    process_on_error: bool = Field(default=False)
+    """If True, this output will be processed even if an error occurred in a previous output."""
+
     def to_dict(self):
         return self.model_dump(by_alias=True, exclude_none=True)
 

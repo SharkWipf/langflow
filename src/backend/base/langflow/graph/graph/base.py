@@ -1474,6 +1474,89 @@ class Graph:
                     await set_cache(key=vertex.id, data=vertex_dict)
 
         except Exception as exc:
+            from langflow.schema.schema import OutputValue
+            from langflow.graph.schema import ResultData
+
+            if isinstance(exc, ComponentBuildError):
+                # Extract process_on_error outputs from the vertex's custom_component
+                partial_results = {}
+                partial_artifacts = {}
+                partial_outputs_logs = {}
+                process_on_error_names = []
+                try:
+                    cc = getattr(vertex, "custom_component", None)
+                    if cc and hasattr(cc, "_outputs_map"):
+                        process_on_error_names = [
+                            name for name, output in cc._outputs_map.items()
+                            if getattr(output, "process_on_error", False)
+                        ]
+                        # Only include those outputs in the error response
+                        if hasattr(cc, "_results"):
+                            partial_results = {k: v for k, v in getattr(cc, "_results", {}).items() if k in process_on_error_names}
+                        if hasattr(cc, "_artifacts"):
+                            partial_artifacts = {k: v for k, v in getattr(cc, "_artifacts", {}).items() if k in process_on_error_names}
+                        if hasattr(cc, "_output_logs"):
+                            partial_outputs_logs = {k: v for k, v in getattr(cc, "_output_logs", {}).items() if k in process_on_error_names}
+                except Exception as e:
+                    logger.warning(f"Could not extract process_on_error outputs: {e}")
+
+                # Build outputs dict: process_on_error outputs get their own values, all others blank/null
+                outputs = {}
+                error_message = str(exc)
+                stack_trace = getattr(exc, "formatted_traceback", "")
+                error_info = {"errorMessage": error_message, "stackTrace": stack_trace}
+
+                # Default behavior: error goes in the Message (or first) output
+                # Find the first output (Message or fallback)
+                all_output_names = []
+                cc = getattr(vertex, "custom_component", None)
+                if cc and hasattr(cc, "_outputs_map"):
+                    all_output_names = list(cc._outputs_map.keys())
+                elif hasattr(vertex, "outputs") and vertex.outputs:
+                    all_output_names = [o["name"] for o in vertex.outputs if "name" in o]
+                first_output_name = all_output_names[0] if all_output_names else None
+
+                # Set process_on_error outputs to their own values, serialized as in the success path
+                for name in process_on_error_names:
+                    artifact = partial_artifacts.get(name)
+                    if (
+                        artifact
+                        and isinstance(artifact, dict)
+                        and "raw" in artifact
+                        and "type" in artifact
+                        and artifact["raw"] is not None
+                    ):
+                        outputs[name] = OutputValue(message=artifact["raw"], type=artifact["type"])
+                    else:
+                        val = partial_results.get(name)
+                        # Only add if val is not None
+                        if val is not None:
+                            outputs[name] = OutputValue(message=val, type="raw")
+                    # If neither artifact nor val is present or both are None, do not add this output
+
+                # Set the error in the Message/first output (default behavior)
+                if first_output_name and first_output_name not in process_on_error_names:
+                    outputs[first_output_name] = OutputValue(message=error_info, type="error")
+
+                # Compose the ResultData-like dict
+                result_dict = ResultData(
+                    results=partial_results,
+                    artifacts=partial_artifacts,
+                    outputs=outputs,
+                    logs={},
+                    messages=[],
+                    message={first_output_name: error_info} if first_output_name and first_output_name not in process_on_error_names else {},
+                )
+                params = error_message
+                valid = False
+                artifacts = partial_artifacts
+                return VertexBuildResult(
+                    result_dict=result_dict,
+                    params=params,
+                    valid=valid,
+                    artifacts=artifacts,
+                    vertex=vertex,
+                )
             if not isinstance(exc, ComponentBuildError):
                 logger.exception("Error building Component")
             raise

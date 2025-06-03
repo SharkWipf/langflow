@@ -228,6 +228,7 @@
                 "display_name": "Prompt Message",
                 "method": "build_prompt",
                 "name": "prompt",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -361,6 +362,7 @@
                 "display_name": "Message",
                 "method": "message_response",
                 "name": "message",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -657,6 +659,7 @@
                 "display_name": "Message",
                 "method": "message_response",
                 "name": "message",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -954,6 +957,7 @@
                 "display_name": "Prompt Message",
                 "method": "build_prompt",
                 "name": "prompt",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -1081,6 +1085,7 @@
                 "display_name": "Prompt Message",
                 "method": "build_prompt",
                 "name": "prompt",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -1291,6 +1296,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text_output",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -1305,6 +1311,7 @@
                 "display_name": "Language Model",
                 "method": "build_model",
                 "name": "model_output",
+                "process_on_error": false,
                 "required_inputs": [
                   "api_key"
                 ],
@@ -1321,6 +1328,7 @@
                 "display_name": "Raw API Response",
                 "method": "raw_response",
                 "name": "raw_response",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -1335,6 +1343,7 @@
                 "display_name": "Raw API Call",
                 "method": "raw_api_call",
                 "name": "raw_api_call",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -1748,6 +1757,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text_output",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -1762,6 +1772,7 @@
                 "display_name": "Language Model",
                 "method": "build_model",
                 "name": "model_output",
+                "process_on_error": false,
                 "required_inputs": [
                   "api_key"
                 ],
@@ -1778,6 +1789,7 @@
                 "display_name": "Raw API Response",
                 "method": "raw_response",
                 "name": "raw_response",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -1792,6 +1804,7 @@
                 "display_name": "Raw API Call",
                 "method": "raw_api_call",
                 "name": "raw_api_call",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -2205,6 +2218,7 @@
                 "display_name": "Message",
                 "method": "text_response",
                 "name": "text_output",
+                "process_on_error": false,
                 "required_inputs": [],
                 "selected": "Message",
                 "tool_mode": true,
@@ -2219,6 +2233,7 @@
                 "display_name": "Language Model",
                 "method": "build_model",
                 "name": "model_output",
+                "process_on_error": false,
                 "required_inputs": [
                   "api_key"
                 ],
@@ -2235,6 +2250,7 @@
                 "display_name": "Raw API Response",
                 "method": "raw_response",
                 "name": "raw_response",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,
@@ -2249,6 +2265,7 @@
                 "display_name": "Raw API Call",
                 "method": "raw_api_call",
                 "name": "raw_api_call",
+                "process_on_error": true,
                 "required_inputs": [],
                 "selected": "object",
                 "tool_mode": true,

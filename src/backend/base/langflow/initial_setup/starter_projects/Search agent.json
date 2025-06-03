@@ -345,6 +345,7 @@
                 "display_name": "Message",
                 "method": "message_response",
                 "name": "message",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [
@@ -654,6 +655,7 @@
                 "display_name": "Message",
                 "method": "message_response",
                 "name": "message",
+                "process_on_error": false,
                 "selected": "Message",
                 "tool_mode": true,
                 "types": [

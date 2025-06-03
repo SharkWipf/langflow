@@ -94,7 +94,8 @@ class LCModelComponent(Component):
             display_name="Raw API Response",
             name="raw_response",
             method="raw_response",
-            info="The unprocessed/raw response object returned by the API provider."
+            info="The unprocessed/raw response object returned by the API provider.",
+            process_on_error=True,
         ),
     ]
     outputs.append(
@@ -102,7 +103,8 @@ class LCModelComponent(Component):
             display_name="Raw API Call",
             name="raw_api_call",
             method="raw_api_call",
-            info="The raw payload or parameters sent to the API provider for the last call."
+            info="The raw payload or parameters sent to the API provider for the last call.",
+            process_on_error=True,
         )
     )
 
