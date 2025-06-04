@@ -17,6 +17,7 @@ from langflow.inputs import MessageInput
 from langflow.inputs.inputs import BoolInput, InputTypes, MultilineInput
 from langflow.schema.message import Message
 from langflow.template.field.base import Output
+from langflow.utils.httpx_recorder import HTTPXRecorder
 
 # Enabled detailed thinking for NVIDIA reasoning models.
 #
@@ -38,10 +39,12 @@ def patch_get_request_payload(obj, payload_callback, seen=None):
     if hasattr(obj, "_get_request_payload") and callable(getattr(obj, "_get_request_payload")):
         orig_get_request_payload = getattr(obj, "_get_request_payload")
         if not getattr(orig_get_request_payload, "_is_patched_for_payload", False):
+
             def get_request_payload_wrapper(*args, **kwargs):
                 payload = orig_get_request_payload(*args, **kwargs)
                 payload_callback(payload)
                 return payload
+
             get_request_payload_wrapper._is_patched_for_payload = True
             try:
                 setattr(obj, "_get_request_payload", get_request_payload_wrapper)
@@ -67,6 +70,7 @@ def patch_get_request_payload(obj, payload_callback, seen=None):
     if hasattr(obj, "__wrapped__"):
         patch_get_request_payload(getattr(obj, "__wrapped__"), payload_callback, seen)
     return obj
+
 
 class LCModelComponent(Component):
     display_name: str = "Model Name"
@@ -284,6 +288,10 @@ class LCModelComponent(Component):
 
         patch_get_request_payload(runnable, _set_last_raw_api_payload)
 
+        # Capture raw HTTP traffic via a recorder
+        recorder = HTTPXRecorder()
+        recorder.install()
+
         try:
             # TODO: Depreciated Feature to be removed in upcoming release
             if hasattr(self, "output_parser") and self.output_parser is not None:
@@ -299,30 +307,43 @@ class LCModelComponent(Component):
             if stream:
                 # For streaming, raw response is the generator/iterator itself
                 self._last_raw_response = runnable.stream(inputs)
-                return self._last_raw_response
-            message = runnable.invoke(inputs)
-            # Store the raw message object for output
-            self._last_raw_response = message
-            result = message.content if hasattr(message, "content") else message
-            if isinstance(message, AIMessage):
-                status_message = self.build_status_message(message)
-                self.status = status_message
-            elif isinstance(result, dict):
-                result = json.dumps(message, indent=4)
-                self.status = result
+                result = self._last_raw_response
             else:
-                self.status = result
+                message = runnable.invoke(inputs)
+                # Store the raw message object for output
+                self._last_raw_response = message
+                result = message.content if hasattr(message, "content") else message
+                if isinstance(message, AIMessage):
+                    status_message = self.build_status_message(message)
+                    self.status = status_message
+                elif isinstance(result, dict):
+                    result = json.dumps(message, indent=4)
+                    self.status = result
+                else:
+                    self.status = result
         except Exception as e:
             if message := self._get_exception_message(e):
                 raise ValueError(message) from e
             raise
-
+        finally:
+            recorder.uninstall()
+            self._last_httpx_request = recorder.last_request
+            self._last_httpx_response = recorder.last_response
+            self._last_httpx_request_str = recorder.last_request_str
+            self._last_httpx_response_str = recorder.last_response_str
         return result
 
     def raw_response(self) -> object:
         """
         Returns the raw API response object from the last API call.
         """
+        if hasattr(self, "_last_httpx_response_str"):
+            try:
+                return json.loads(self._last_httpx_response_str)
+            except Exception:
+                return self._last_httpx_response_str
+        if hasattr(self, "_last_httpx_response"):
+            return self._last_httpx_response
         return getattr(self, "_last_raw_response", None)
 
     def raw_api_call(self) -> object:
@@ -330,6 +351,13 @@ class LCModelComponent(Component):
         Returns the raw API call payload/parameters from the last API call.
         If available, returns the actual API payload sent to the provider.
         """
+        if hasattr(self, "_last_httpx_request_str"):
+            try:
+                return json.loads(self._last_httpx_request_str)
+            except Exception:
+                return self._last_httpx_request_str
+        if hasattr(self, "_last_httpx_request"):
+            return self._last_httpx_request
         if hasattr(self, "_last_raw_api_payload"):
             return self._last_raw_api_payload
         return getattr(self, "_last_raw_api_call", None)
