@@ -16,7 +16,14 @@ const JsonOutputViewComponent: React.FC<JsonOutputViewComponentProps> = ({
   nodeId,
   outputName,
 }) => {
-  const jsonData = typeof data === "string" ? JSON.parse(data) : data;
+  let jsonData: any = data;
+  if (typeof data === "string") {
+    try {
+      jsonData = JSON.parse(data);
+    } catch {
+      jsonData = data;
+    }
+  }
   const setNode = useFlowStore((state) => state.setNode);
   const node = useFlowStore((state) => state.getNode(nodeId));
   const outputs = (node?.data.node as APIClassType)?.outputs;

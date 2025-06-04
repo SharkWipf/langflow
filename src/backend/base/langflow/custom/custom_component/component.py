@@ -1050,7 +1050,7 @@ class Component(CustomComponent):
             custom_repr = str(custom_repr)
 
         raw = self._process_raw_result(result)
-        artifact_type = get_artifact_type(self.status or raw, result)
+        artifact_type = get_artifact_type(raw, result)
         raw, artifact_type = post_process_raw(raw, artifact_type)
         return {"repr": custom_repr, "raw": raw, "type": artifact_type}
 
