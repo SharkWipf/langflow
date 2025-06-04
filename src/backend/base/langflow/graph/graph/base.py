@@ -1517,6 +1517,7 @@ class Graph:
                 first_output_name = all_output_names[0] if all_output_names else None
 
                 # Set process_on_error outputs to their own values, serialized as in the success path
+                import json
                 for name in process_on_error_names:
                     artifact = partial_artifacts.get(name)
                     if (
@@ -1526,12 +1527,24 @@ class Graph:
                         and "type" in artifact
                         and artifact["raw"] is not None
                     ):
-                        outputs[name] = OutputValue(message=artifact["raw"], type=artifact["type"])
+                        value = artifact["raw"]
+                        # Always send as string (JSON if not already string)
+                        if not isinstance(value, str):
+                            try:
+                                value = json.dumps(value, ensure_ascii=False)
+                            except Exception:
+                                value = str(value)
+                        outputs[name] = OutputValue(message=value, type=artifact["type"])
                     else:
                         val = partial_results.get(name)
-                        # Only add if val is not None
                         if val is not None:
-                            outputs[name] = OutputValue(message=val, type="raw")
+                            value = val
+                            if not isinstance(value, str):
+                                try:
+                                    value = json.dumps(value, ensure_ascii=False)
+                                except Exception:
+                                    value = str(value)
+                            outputs[name] = OutputValue(message=value, type="raw")
                     # If neither artifact nor val is present or both are None, do not add this output
 
                 # Set the error in the Message/first output (default behavior)

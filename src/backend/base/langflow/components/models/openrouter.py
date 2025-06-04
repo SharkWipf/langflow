@@ -281,20 +281,19 @@ class OpenRouterComponent(LCModelComponent):
             kwargs["default_headers"] = headers
 
         # --- Inject provider.require_parameters if advanced toggle is enabled ---
-        model_kwargs = {}
         if getattr(self, "require_parameters", False):
-            model_kwargs["provider"] = {"require_parameters": True}
-        if model_kwargs:
-            kwargs["model_kwargs"] = model_kwargs
+            # The OpenAI Python client only accepts extra fields via the
+            # ``extra_body`` argument. We use it to forward the ``provider``
+            # block required by OpenRouter.
+            extra_body = {"provider": {"require_parameters": True}}
+            kwargs["extra_body"] = extra_body
 
         try:
-            output = ChatOpenAI(**kwargs)
+            llm_output = ChatOpenAI(**kwargs)
         except (ValueError, httpx.HTTPError) as err:
             error_msg = f"Failed to build model: {err!s}"
             self.log(error_msg)
             raise ValueError(error_msg) from err
-
-        llm_output = ChatOpenAI(**kwargs)
 
         binding_args = None
         self._schema_mapping = None # Reset schema mapping
