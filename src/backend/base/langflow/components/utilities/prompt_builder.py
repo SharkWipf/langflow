@@ -18,16 +18,22 @@ COMPLETE_REPORT_TEMPLATE = """
   Prints out a sequence of (optional) fields in this order:
     1. Prelude   (printed at top / bottom / both, depending on prelude_position)
     2. Assignment (printed at top / bottom / both, depending on assignment_position)
-    3. Intended design
-    4. Intended usage
-    5. 3rd party documentation
-    6. 1st party documentation
-    7. 1st party code
-    8. 1st party misc files
-    9. Logs
-   10. Work already done
-   11. Work to do
-   12. Diff
+    3. Assignment specification
+    4. Full specification
+    5. Intended design
+    6. Design considerations
+    7. Current situation
+    8. User feedback
+    9. Intended usage
+   10. 3rd party documentation
+   11. 1st party documentation
+   12. 1st party code
+   13. 1st party misc files
+   14. Logs
+   15. Work already done
+   16. Work to do
+   17. Open questions
+   18. Diff
 
   Rules:
     • Any field that is “undefined” or an empty string will be skipped.
@@ -105,7 +111,43 @@ COMPLETE_REPORT_TEMPLATE = """
     {% set ns.assignment_printed = true %}
   {% endif %}
 {% endif %}
-{# ==== 3) INTENDED DESIGN (always “middle”, once) ==== #}
+{# ==== 3) ASSIGNMENT SPECIFICATION ==== #}
+{% if assignment_specification is defined and assignment_specification %}
+  {% if ns.first %}
+Assignment specification:
+---
+
+{{ assignment_specification }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+Assignment specification:
+---
+
+{{ assignment_specification }}
+
+  {% endif %}
+{% endif %}
+{# ==== 4) FULL SPECIFICATION ==== #}
+{% if full_specification is defined and full_specification %}
+  {% if ns.first %}
+Full specification:
+---
+
+{{ full_specification }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+Full specification:
+---
+
+{{ full_specification }}
+
+  {% endif %}
+{% endif %}
+{# ==== 5) INTENDED DESIGN (always “middle”, once) ==== #}
 {% if intended_design is defined and intended_design %}
   {% if ns.first %}
 Intended design:
@@ -123,7 +165,61 @@ Intended design:
 
   {% endif %}
 {% endif %}
-{# ==== 4) INTENDED USAGE ==== #}
+{# ==== 6) DESIGN CONSIDERATIONS ==== #}
+{% if design_considerations is defined and design_considerations %}
+  {% if ns.first %}
+Design considerations:
+---
+
+{{ design_considerations }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+Design considerations:
+---
+
+{{ design_considerations }}
+
+  {% endif %}
+{% endif %}
+{# ==== 7) CURRENT SITUATION ==== #}
+{% if current_situation is defined and current_situation %}
+  {% if ns.first %}
+Current situation:
+---
+
+{{ current_situation }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+Current situation:
+---
+
+{{ current_situation }}
+
+  {% endif %}
+{% endif %}
+{# ==== 8) USER FEEDBACK ==== #}
+{% if user_feedback is defined and user_feedback %}
+  {% if ns.first %}
+User feedback:
+---
+
+{{ user_feedback }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+User feedback:
+---
+
+{{ user_feedback }}
+
+  {% endif %}
+{% endif %}
+{# ==== 9) INTENDED USAGE ==== #}
 {% if intended_usage is defined and intended_usage %}
   {% if ns.first %}
 Intended usage:
@@ -141,7 +237,7 @@ Intended usage:
 
   {% endif %}
 {% endif %}
-{# ==== 5) 3RD PARTY DOCUMENTATION ==== #}
+{# ==== 10) 3RD PARTY DOCUMENTATION ==== #}
 {% if third_party_documentation is defined and third_party_documentation %}
   {% if ns.first %}
 3rd party documentation:
@@ -159,7 +255,7 @@ Intended usage:
 
   {% endif %}
 {% endif %}
-{# ==== 6) 1ST PARTY DOCUMENTATION ==== #}
+{# ==== 11) 1ST PARTY DOCUMENTATION ==== #}
 {% if first_party_documentation is defined and first_party_documentation %}
   {% if ns.first %}
 1st party documentation:
@@ -177,7 +273,7 @@ Intended usage:
 
   {% endif %}
 {% endif %}
-{# ==== 7) 1ST PARTY CODE ==== #}
+{# ==== 12) 1ST PARTY CODE ==== #}
 {% if first_party_code is defined and first_party_code %}
   {% if ns.first %}
 1st party code:
@@ -195,7 +291,7 @@ Intended usage:
 
   {% endif %}
 {% endif %}
-{# ==== 8) 1ST PARTY MISC FILES ==== #}
+{# ==== 13) 1ST PARTY MISC FILES ==== #}
 {% if first_party_misc_files is defined and first_party_misc_files %}
   {% if ns.first %}
 1st party misc files:
@@ -213,7 +309,7 @@ Intended usage:
 
   {% endif %}
 {% endif %}
-{# ==== 9) LOGS ==== #}
+{# ==== 14) LOGS ==== #}
 {% if logs is defined and logs %}
   {% if ns.first %}
 Logs:
@@ -231,7 +327,7 @@ Logs:
 
   {% endif %}
 {% endif %}
-{# ==== 10) WORK ALREADY DONE ==== #}
+{# ==== 15) WORK ALREADY DONE ==== #}
 {% if work_already_done is defined and work_already_done %}
   {% if ns.first %}
 Work already done:
@@ -249,7 +345,7 @@ Work already done:
 
   {% endif %}
 {% endif %}
-{# ==== 11) WORK TO DO ==== #}
+{# ==== 16) WORK TO DO ==== #}
 {% if work_to_do is defined and work_to_do %}
   {% if ns.first %}
 Work to do:
@@ -267,7 +363,25 @@ Work to do:
 
   {% endif %}
 {% endif %}
-{# ==== 12) DIFF ==== #}
+{# ==== 17) OPEN QUESTIONS ==== #}
+{% if open_questions is defined and open_questions %}
+  {% if ns.first %}
+Open questions:
+---
+
+{{ open_questions }}
+
+    {% set ns.first = false %}
+  {% else %}
+---
+Open questions:
+---
+
+{{ open_questions }}
+
+  {% endif %}
+{% endif %}
+{# ==== 18) DIFF ==== #}
 {% if diff is defined and diff %}
   {% if ns.first %}
 Diff:
@@ -286,7 +400,7 @@ Diff:
   {% endif %}
 {% endif %}
 {#
-  ==== 13) PRELUDE @ BOTTOM if requested ====
+  ==== 19) PRELUDE @ BOTTOM if requested ====
   If prelude_position == "bottom", this is the first time we’re printing it.
   If prelude_position == "both", we printed it in step 1, so now we repeat
   with label “Repeat of Prelude:”.
@@ -317,7 +431,7 @@ Diff:
   {% endif %}
 {% endif %}
 {#
-  ==== 14) ASSIGNMENT @ BOTTOM if requested ====
+  ==== 20) ASSIGNMENT @ BOTTOM if requested ====
   Analogous logic to Prelude@bottom: if “both,” this is the second time,
   so label “Repeat of Assignment:”.
 #}
@@ -374,15 +488,21 @@ class PromptBuilder(Component):
     inputs = [
         MultilineInput(name="prelude", display_name="Prelude", info="Opening text for the prompt.", value=""),
         MultilineInput(name="assignment", display_name="Assignment", info="Description of the task or assignment.", value=""),
+        MultilineInput(name="assignment_specification", display_name="Assignment Specification", info="Detailed description of the current goal.", value=""),
+        MultilineInput(name="full_specification", display_name="Full Specification", info="Detailed description of the future goal.", value=""),
         MultilineInput(name="intended_design", display_name="Intended Design", info="Details about the intended design.", value=""),
+        MultilineInput(name="design_considerations", display_name="Design Considerations", input_types=["Message", "DataFrame", "Data", "dict", "list"], info="Design notes or considerations. Lists/Dicts will be bulleted.", value=""),
+        MultilineInput(name="current_situation", display_name="Current Situation", info="Description of the current situation.", value=""),
+        MultilineInput(name="user_feedback", display_name="User Feedback", info="Feedback from the user.", value=""),
         MultilineInput(name="intended_usage", display_name="Intended Usage", info="How the subject is intended to be used.", value=""),
-        MultilineInput(name="third_party_documentation", display_name="3rd Party Documentation", input_types=["Text", "DataFrame", "Data"], info="External documentation. DataFrame will be formatted with file paths.", value=""),
-        MultilineInput(name="first_party_documentation", display_name="1st Party Documentation", input_types=["Text", "DataFrame", "Data"], info="Internal documentation. DataFrame will be formatted.", value=""),
-        MultilineInput(name="first_party_code", display_name="1st Party Code", input_types=["Text", "DataFrame", "Data"], info="Relevant internal source code. DataFrame will be formatted.", value=""),
-        MultilineInput(name="first_party_misc_files", display_name="1st Party Misc Files", input_types=["Text", "DataFrame", "Data"], info="Other relevant internal files. DataFrame will be formatted.", value=""),
-        MultilineInput(name="logs", display_name="Logs", input_types=["Text", "DataFrame", "Data"], info="Log outputs. DataFrame will be formatted.", value=""),
-        MultilineInput(name="work_already_done", display_name="Work Already Done", input_types=["Text", "DataFrame", "Data", "dict", "list"], info="Summary of work completed. Lists/Dicts will be bulleted.", value=""),
-        MultilineInput(name="work_to_do", display_name="Work To Do", input_types=["Text", "DataFrame", "Data", "dict", "list"], info="Summary of pending work. Lists/Dicts will be bulleted.", value=""),
+        MultilineInput(name="third_party_documentation", display_name="3rd Party Documentation", input_types=["Message", "DataFrame", "Data"], info="External documentation. DataFrame will be formatted with file paths.", value=""),
+        MultilineInput(name="first_party_documentation", display_name="1st Party Documentation", input_types=["Message", "DataFrame", "Data"], info="Internal documentation. DataFrame will be formatted.", value=""),
+        MultilineInput(name="first_party_code", display_name="1st Party Code", input_types=["Message", "DataFrame", "Data"], info="Relevant internal source code. DataFrame will be formatted.", value=""),
+        MultilineInput(name="first_party_misc_files", display_name="1st Party Misc Files", input_types=["Message", "DataFrame", "Data"], info="Other relevant internal files. DataFrame will be formatted.", value=""),
+        MultilineInput(name="logs", display_name="Logs", input_types=["Message", "DataFrame", "Data"], info="Log outputs. DataFrame will be formatted.", value=""),
+        MultilineInput(name="work_already_done", display_name="Work Already Done", input_types=["Message", "DataFrame", "Data", "dict", "list"], info="Summary of work completed. Lists/Dicts will be bulleted.", value=""),
+        MultilineInput(name="work_to_do", display_name="Work To Do", input_types=["Message", "DataFrame", "Data", "dict", "list"], info="Summary of pending work. Lists/Dicts will be bulleted.", value=""),
+        MultilineInput(name="open_questions", display_name="Open Questions", input_types=["Message", "DataFrame", "Data", "dict", "list"], info="Questions that still need answers. Lists/Dicts will be bulleted.", value=""),
         MultilineInput(name="diff", display_name="Diff", info="A code diff or textual changes.", value=""),
         DropdownInput(name="prelude_position", display_name="Prelude Position", options=["top", "bottom", "both"], info="Position of the Prelude text.", value="top"),
         DropdownInput(name="assignment_position", display_name="Assignment Position", options=["top", "bottom", "both"], info="Position of the Assignment text.", value="bottom"),
@@ -519,7 +639,12 @@ class PromptBuilder(Component):
         context = {
             "prelude": str(self.prelude or ""),
             "assignment": str(self.assignment or ""),
+            "assignment_specification": str(self.assignment_specification or ""),
+            "full_specification": str(self.full_specification or ""),
             "intended_design": str(self.intended_design or ""),
+            "design_considerations": self._format_list_input(self.design_considerations),
+            "current_situation": str(self.current_situation or ""),
+            "user_feedback": str(self.user_feedback or ""),
             "intended_usage": str(self.intended_usage or ""),
             "third_party_documentation": self._format_data_input(self.third_party_documentation),
             "first_party_documentation": self._format_data_input(self.first_party_documentation),
@@ -528,6 +653,7 @@ class PromptBuilder(Component):
             "logs": self._format_data_input(self.logs),
             "work_already_done": self._format_list_input(self.work_already_done),
             "work_to_do": self._format_list_input(self.work_to_do),
+            "open_questions": self._format_list_input(self.open_questions),
             "diff": str(self.diff or ""),
             "prelude_position": str(self.prelude_position or "top"),
             "assignment_position": str(self.assignment_position or "bottom"),
